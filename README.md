@@ -1,6 +1,6 @@
 DAPScoin integration/staging repository
 =====================================
-[Build Status](https://travis-ci.org/DAPScoin-Project/DAPScoin.svg?branch=master)
+![Build Status](https://travis-ci.org/DAPScoin-Project/DAPScoin.svg?branch=master)
 
 DAPScoin is a cutting edge cryptocurrency, with many features not available in most other cryptocurrencies.
 - Anonymized transactions using Stealth addresses, RingCT and Bulletproofs.
