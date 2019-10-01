@@ -1,11 +1,10 @@
 DAPScoin integration/staging repository
 =====================================
-
-[![Build Status](https://travis-ci.org/DAPScoin-Project/DAPScoin.svg?branch=master)]]
+[Build Status](https://travis-ci.org/DAPScoin-Project/DAPScoin.svg?branch=master)
 
 DAPScoin is a cutting edge cryptocurrency, with many features not available in most other cryptocurrencies.
 - Anonymized transactions using Stealth addresses, RingCT and Bulletproofs.
--  Masternode is secured with a collateral of 1,000,000 DAPS.
+- Masternode is secured with a collateral of 1,000,000 DAPS.
 
 More information at [officialdapscoin.com](https://officialdapscoin.com) Visit our ANN thread at [BitcoinTalk](https://bitcointalk.org/index.php?topic=5146718)
 
