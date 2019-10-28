@@ -178,6 +178,7 @@ QMenuBar::item:selected,
 QMenu::item:selected,
 QTextEdit:focus {
   border-width: 4px;
+  padding: 1px;
   background: #a7a7a7;
 }
 
@@ -222,7 +223,8 @@ QPushButton:hover {
 }
 
 QPushButton:pressed {
-  background-color: #a975a5;
+  background-color: #f7f7f7;
+  padding: 0px 0px;
   border-style: solid;
   border-color: #b57fb1;
   border-width: 10px;
@@ -252,6 +254,12 @@ QPushButton#btnLockUnlock{
   background-color: transparent;
   border: 0;
   border-radius: 0;
+}
+
+QPushButton#pushButtonBackup{
+  width: 200px;
+  height: 30px;
+  border: 5 solid red;
 }
 
 /*** Spin Boxes, Combo Boxes ***/
