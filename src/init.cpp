@@ -291,13 +291,24 @@ void Shutdown()
  */
 void HandleSIGTERM(int)
 {
-    fRequestShutdown = true;
+    StartShutdown();
 }
 
 void HandleSIGHUP(int)
 {
     fReopenDebugLog = true;
 }
+
+#ifndef WIN32
+static void registerSignalHandler(int signal, void(*handler)(int))
+{
+    struct sigaction sa;
+    sa.sa_handler = handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(signal, &sa, nullptr);
+}
+#endif
 
 bool static InitError(const std::string& str)
 {
@@ -428,7 +439,7 @@ std::string HelpMessage(HelpMessageMode mode)
             FormatMoney(CWallet::minTxFee.GetFeePerK())));
     strUsage += HelpMessageOpt("-paytxfee=<amt>", strprintf(_("Fee (in DAPS/kB) to add to transactions you send (default: %s)"), FormatMoney(payTxFee.GetFeePerK())));
     strUsage += HelpMessageOpt("-rescan", _("Rescan the block chain for missing wallet transactions") + " " + _("on startup"));
-    strUsage += HelpMessageOpt("-salvagewallet", _("Attempt to recover private keys from a corrupt wallet.dat") + " " + _("on startup"));
+    strUsage += HelpMessageOpt("-salvagewallet", _("Attempt to recover private keys from a corrupt multisig_wallet.dat") + " " + _("on startup"));
     strUsage += HelpMessageOpt("-sendfreetransactions", strprintf(_("Send transactions as zero-fee transactions if possible (default: %u)"), 0));
     strUsage += HelpMessageOpt("-spendzeroconfchange", strprintf(_("Spend unconfirmed change when sending transactions (default: %u)"), 1));
     strUsage += HelpMessageOpt("-disablesystemnotifications", strprintf(_("Disable OS notifications for incoming transactions (default: %u)"), 0));
@@ -436,7 +447,7 @@ std::string HelpMessage(HelpMessageMode mode)
     strUsage += HelpMessageOpt("-maxtxfee=<amt>", strprintf(_("Maximum total fees to use in a single wallet transaction, setting too low may abort large transactions (default: %s)"),
         FormatMoney(maxTxFee)));
     strUsage += HelpMessageOpt("-upgradewallet", _("Upgrade wallet to latest format") + " " + _("on startup"));
-    strUsage += HelpMessageOpt("-wallet=<file>", _("Specify wallet file (within data directory)") + " " + strprintf(_("(default: %s)"), "wallet.dat"));
+    strUsage += HelpMessageOpt("-wallet=<file>", _("Specify wallet file (within data directory)") + " " + strprintf(_("(default: %s)"), "multisig_wallet.dat"));
     strUsage += HelpMessageOpt("-walletnotify=<cmd>", _("Execute command when a wallet transaction changes (%s in cmd is replaced by TxID)"));
     if (mode == HMM_BITCOIN_QT)
         strUsage += HelpMessageOpt("-windowtitle=<name>", _("Wallet window title"));
@@ -487,6 +498,7 @@ std::string HelpMessage(HelpMessageMode mode)
         strUsage += HelpMessageOpt("-relaypriority", strprintf(_("Require high priority for relaying free or low-fee transactions (default:%u)"), 1));
         strUsage += HelpMessageOpt("-maxsigcachesize=<n>", strprintf(_("Limit size of signature cache to <n> entries (default: %u)"), 50000));
     }
+    strUsage += HelpMessageOpt("-maxtipage=<n>", strprintf("Maximum tip age in seconds to consider node in initial block download (default: %u)", DEFAULT_MAX_TIP_AGE));
     strUsage += HelpMessageOpt("-minrelaytxfee=<amt>", strprintf(_("Fees (in DAPS/Kb) smaller than this are considered zero fee for relaying (default: %s)"), FormatMoney(::minRelayTxFee.GetFeePerK())));
     strUsage += HelpMessageOpt("-printtoconsole", strprintf(_("Send trace/debug info to console instead of debug.log file (default: %u)"), 0));
     if (GetBoolArg("-help-debug", false)) {
@@ -556,6 +568,8 @@ std::string LicenseInfo()
     return FormatParagraph(strprintf(_("Copyright (C) 2009-%i The Bitcoin Core Developers"), COPYRIGHT_YEAR)) + "\n" +
            "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2014-%i The Dash Core Developers"), COPYRIGHT_YEAR)) + "\n" +
+           "\n" +
+           FormatParagraph(strprintf(_("Copyright (C) 2015-%i The PIVX Core Developers"), COPYRIGHT_YEAR)) + "\n" +
            "\n" +
            FormatParagraph(strprintf(_("Copyright (C) 2018-%i The DAPS Project developers"), COPYRIGHT_YEAR)) + "\n" +
            "\n" +
@@ -664,7 +678,6 @@ bool InitSanityCheck(void)
 
     return true;
 }
-
 bool AppInitServers()
 {
     RPCServer::OnStopped(&OnRPCStopped);
@@ -682,10 +695,20 @@ bool AppInitServers()
     return true;
 }
 
-/** Initialize dapscoin.
- *  @pre Parameters should be parsed and config file should be read.
- */
-bool AppInit2(bool isDaemon)
+[[noreturn]] static void new_handler_terminate()
+{
+    // Rather than throwing std::bad-alloc if allocation fails, terminate
+    // immediately to (try to) avoid chain corruption.
+    // Since LogPrintf may itself allocate memory, set the handler directly
+    // to terminate first.
+    std::set_new_handler(std::terminate);
+    LogPrintf("Error: Out of memory. Terminating.\n");
+
+    // The log was successful, terminate now.
+    std::terminate();
+};
+
+bool AppInitBasicSetup()
 {
 // ********************************************************* Step 1: setup
 #ifdef _MSC_VER
@@ -724,25 +747,30 @@ bool AppInit2(bool isDaemon)
         umask(077);
     }
 
-
-    // Clean shutdown on SIGTERM
-    struct sigaction sa;
-    sa.sa_handler = HandleSIGTERM;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sigaction(SIGTERM, &sa, NULL);
-    sigaction(SIGINT, &sa, NULL);
+    // Clean shutdown on SIGTERMx
+    registerSignalHandler(SIGTERM, HandleSIGTERM);
+    registerSignalHandler(SIGINT, HandleSIGTERM);
 
     // Reopen debug.log on SIGHUP
-    struct sigaction sa_hup;
-    sa_hup.sa_handler = HandleSIGHUP;
-    sigemptyset(&sa_hup.sa_mask);
-    sa_hup.sa_flags = 0;
-    sigaction(SIGHUP, &sa_hup, NULL);
+    registerSignalHandler(SIGHUP, HandleSIGHUP);
 
 // Ignore SIGPIPE, otherwise it will bring the daemon down if the client closes unexpectedly
     signal(SIGPIPE, SIG_IGN);
 #endif
+
+    std::set_new_handler(new_handler_terminate);
+
+    return true;
+}
+
+/** Initialize daps.
+ *  @pre Parameters should be parsed and config file should be read.
+ */
+bool AppInit2(bool isDaemon)
+{
+    // ********************************************************* Step 1: setup
+    if (!AppInitBasicSetup())
+        return false;
 
     // ********************************************************* Step 2: parameter interactions
     // Set this early so that parameter interactions go to console
@@ -863,7 +891,6 @@ bool AppInit2(bool isDaemon)
     else if (nScriptCheckThreads > MAX_SCRIPTCHECK_THREADS)
         nScriptCheckThreads = MAX_SCRIPTCHECK_THREADS;
 
-    fServer = GetBoolArg("-server", false);
     setvbuf(stdout, NULL, _IOLBF, 0); /// ***TODO*** do we still need this after -printtoconsole is gone?
 
     // Staking needs a CWallet instance, so make sure wallet is enabled
@@ -932,7 +959,7 @@ bool AppInit2(bool isDaemon)
     bdisableSystemnotifications = GetBoolArg("-disablesystemnotifications", false);
     fSendFreeTransactions = GetBoolArg("-sendfreetransactions", false);
 
-    std::string strWalletFile = GetArg("-wallet", "wallet.dat");
+    std::string strWalletFile = GetArg("-wallet", "multisig_wallet.dat");
 #endif // ENABLE_WALLET
 
     fIsBareMultisigStd = GetBoolArg("-permitbaremultisig", true) != 0;
@@ -943,6 +970,8 @@ bool AppInit2(bool isDaemon)
 
     if (GetBoolArg("-peerbloomfilters", DEFAULT_PEERBLOOMFILTERS))
         nLocalServices |= NODE_BLOOM;
+
+    nMaxTipAge = GetArg("-maxtipage", DEFAULT_MAX_TIP_AGE);
 
     // ********************************************************* Step 4: application initialization: dir lock, daemonize, pidfile, debug log
 
@@ -1000,13 +1029,11 @@ bool AppInit2(bool isDaemon)
      * that the server is there and will be ready later).  Warmup mode will
      * be disabled when initialisation is finished.
      */
-    if (fServer) {
+    if (GetBoolArg("-server", false)) {
         uiInterface.InitMessage.connect(SetRPCWarmupStatus);
         if (!AppInitServers())
             return InitError(_("Unable to start HTTP server. See debug log for details."));
     }
-
-    int64_t nStart;
 
 // ********************************************************* Step 5: Backup wallet and verify wallet database integrity
 #ifdef ENABLE_WALLET
@@ -1056,7 +1083,7 @@ bool AppInit2(bool isDaemon)
                     // Only check regular files
                     if (boost::filesystem::is_regular_file(dir_iter->status())) {
                         currentFile = dir_iter->path().filename();
-                        // Only add the backups for the current wallet, e.g. wallet.dat.*
+                        // Only add the backups for the current wallet, e.g. multisig_wallet.dat.*
                         if (dir_iter->path().stem().string() == strWalletFile) {
                             folder_set.insert(folder_set_t::value_type(boost::filesystem::last_write_time(dir_iter->path()), *dir_iter));
                         }
@@ -1185,12 +1212,12 @@ bool AppInit2(bool isDaemon)
     if (proxyArg != "" && proxyArg != "0") {
         CService proxyAddr;
         if (!Lookup(proxyArg.c_str(), proxyAddr, 9050, fNameLookup)) {
-            return InitError(strprintf(_("Invalid -proxy address or hostname: '%s'"), proxyArg));
+            return InitError(strprintf(_("Lookup(): Invalid -proxy address or hostname: '%s'"), proxyArg));
         }
 
         proxyType addrProxy = proxyType(proxyAddr, proxyRandomize);
         if (!addrProxy.IsValid())
-            return InitError(strprintf(_("Invalid -proxy address or hostname: '%s'"), proxyArg));
+            return InitError(strprintf(_("isValid(): Invalid -proxy address or hostname: '%s'"), proxyArg));
 
         SetProxy(NET_IPV4, addrProxy);
         SetProxy(NET_IPV6, addrProxy);
@@ -1243,7 +1270,7 @@ bool AppInit2(bool isDaemon)
         } else {
             struct in_addr inaddr_any;
             inaddr_any.s_addr = INADDR_ANY;
-            fBound |= Bind(CService(in6addr_any, GetListenPort()), BF_NONE);
+            fBound |= Bind(CService((in6_addr)IN6ADDR_ANY_INIT, GetListenPort()), BF_NONE);
             fBound |= Bind(CService(inaddr_any, GetListenPort()), !fBound ? BF_REPORT_ERROR : BF_NONE);
         }
         if (!fBound)
@@ -1298,8 +1325,9 @@ bool AppInit2(bool isDaemon)
 
         uiInterface.InitMessage(_("Loading block index..."));
 
-        nStart = GetTimeMillis();
         do {
+            const int64_t load_block_index_start_time = GetTimeMillis();
+
             try {
                 UnloadBlockIndex();
                 delete pcoinsTip;
@@ -1372,6 +1400,7 @@ bool AppInit2(bool isDaemon)
 
             fVerifyingBlocks = false;
             fLoaded = true;
+            LogPrintf(" block index %15dms\n", GetTimeMillis() - load_block_index_start_time);
         } while (false);
 
         if (!fLoaded && !ShutdownRequested()) {
@@ -1383,6 +1412,28 @@ bool AppInit2(bool isDaemon)
                 if (fRet) {
                     fReindex = true;
                     fRequestShutdown = false;
+
+                    filesystem::path blocksDir = GetDataDir() / "blocks";
+                    filesystem::path chainstateDir = GetDataDir() / "chainstate";
+                    
+                    // We delete in 4 individual steps in case one of the folder is missing already
+                    try {
+                        if (filesystem::exists(blocksDir)){
+                            boost::filesystem::remove_all(blocksDir);
+                            LogPrintf("-resync: folder deleted: %s\n", blocksDir.string().c_str());
+                        }
+
+                        if (filesystem::exists(chainstateDir)){
+                            boost::filesystem::remove_all(chainstateDir);
+                            LogPrintf("-resync: folder deleted: %s\n", chainstateDir.string().c_str());
+                        }
+                        
+                        boost::filesystem::create_directories(blocksDir);
+                        boost::filesystem::create_directories(chainstateDir);
+                    } catch (boost::filesystem::filesystem_error& error) {
+                        LogPrintf("Failed to delete blockchain folders %s\n", error.what());
+                    }
+                    
                 } else {
                     LogPrintf("Aborted block database rebuild. Exiting.\n");
                     return false;
@@ -1400,7 +1451,6 @@ bool AppInit2(bool isDaemon)
         LogPrintf("Shutdown requested. Exiting.\n");
         return false;
     }
-    LogPrintf(" block index %15dms\n", GetTimeMillis() - nStart);
 
     boost::filesystem::path est_path = GetDataDir() / FEE_ESTIMATES_FILENAME;
     CAutoFile est_filein(fopen(est_path.string().c_str(), "rb"), SER_DISK, CLIENT_VERSION);
@@ -1424,7 +1474,7 @@ bool AppInit2(bool isDaemon)
             pwalletMain = new CWallet(strWalletFile);
             DBErrors nZapWalletRet = pwalletMain->ZapWalletTx(vWtx);
             if (nZapWalletRet != DB_LOAD_OK) {
-                uiInterface.InitMessage(_("Error loading wallet.dat: Wallet corrupted"));
+                uiInterface.InitMessage(_("Error loading multisig_wallet.dat: Wallet corrupted"));
                 return false;
             }
 
@@ -1435,25 +1485,25 @@ bool AppInit2(bool isDaemon)
         uiInterface.InitMessage(_("Loading... Please do not interrupt this process as it could lead to a corrupt wallet."));
         fVerifyingBlocks = true;
 
-        nStart = GetTimeMillis();
+        const int64_t nWalletStartTime = GetTimeMillis();
         bool fFirstRun = true;
         pwalletMain = new CWallet(strWalletFile);
         DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
         if (nLoadWalletRet != DB_LOAD_OK) {
             if (nLoadWalletRet == DB_CORRUPT)
-                strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
+                strErrors << _("Error loading multisig_wallet.dat: Wallet corrupted") << "\n";
             else if (nLoadWalletRet == DB_NONCRITICAL_ERROR) {
-                string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
+                string msg(_("Warning: error reading multisig_wallet.dat! All keys read correctly, but transaction data"
                              " or address book entries might be missing or incorrect."));
                 InitWarning(msg);
             } else if (nLoadWalletRet == DB_TOO_NEW)
-                strErrors << _("Error loading wallet.dat: Wallet requires newer version of DAPScoin") << "\n";
+                strErrors << _("Error loading multisig_wallet.dat: Wallet requires newer version of DAPScoin Core") << "\n";
             else if (nLoadWalletRet == DB_NEED_REWRITE) {
                 strErrors << _("Wallet needed to be rewritten: restart DAPS to complete") << "\n";
                 LogPrintf("%s", strErrors.str());
                 return InitError(strErrors.str());
             } else
-                strErrors << _("Error loading wallet.dat") << "\n";
+                strErrors << _("Error loading multisig_wallet.dat") << "\n";
         }
 
         if (GetBoolArg("-upgradewallet", fFirstRun)) {
@@ -1496,7 +1546,7 @@ bool AppInit2(bool isDaemon)
         }
 
         LogPrintf("%s", strErrors.str());
-        LogPrintf(" wallet      %15dms\n", GetTimeMillis() - nStart);
+        LogPrintf("Wallet completed loading in %15dms\n", GetTimeMillis() - nWalletStartTime);
 
         RegisterValidationInterface(pwalletMain);
     	int height = -1;
@@ -1522,9 +1572,11 @@ bool AppInit2(bool isDaemon)
         if (chainActive.Tip() && chainActive.Tip() != pindexRescan) {
             uiInterface.InitMessage(_("Rescanning..."));
             LogPrintf("Rescanning last %i blocks (from block %i)...\n", chainActive.Height() - pindexRescan->nHeight, pindexRescan->nHeight);
-            nStart = GetTimeMillis();
-            pwalletMain->ScanForWalletTransactions(pindexRescan, true);
-            LogPrintf(" rescan      %15dms\n", GetTimeMillis() - nStart);
+            const int64_t nWalletRescanTime = GetTimeMillis();
+            if (pwalletMain->ScanForWalletTransactions(pindexRescan, true, true) == -1) {
+                return error("Shutdown requested over the txs scan. Exiting.");
+            }
+            LogPrintf("Rescan completed in %15dms\n", GetTimeMillis() - nWalletRescanTime);
             pwalletMain->SetBestChain(chainActive.GetLocator());
             nWalletDBUpdated++;
 

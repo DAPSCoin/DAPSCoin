@@ -14,7 +14,7 @@ package_name_ns = sys.argv[2]
 ds = DSStore.open(output_file, 'w+')
 ds['.']['bwsp'] = {
     'ShowStatusBar': False,
-    'WindowBounds': b'{{300, 280}, {500, 343}}',
+    'WindowBounds': '{{300, 280}, {500, 343}}',
     'ContainerShowSidebar': False,
     'SidebarWidth': 0,
     'ShowTabView': False,
@@ -54,7 +54,7 @@ ds['.']['icvp'] = icvp
 ds['.']['vSrn'] = ('long', 1)
 
 ds['Applications']['Iloc'] = (370, 156)
-ds['DAPScoin-Qt.app']['Iloc'] = (128, 156)
+ds['DAPScoin-Qt-Multisig.app']['Iloc'] = (128, 156)
 
 ds.flush()
 ds.close()

@@ -176,7 +176,7 @@ QString TransactionDesc::toHTML(CWallet* wallet, CWalletTx& wtx, TransactionReco
     } else {
         isminetype fAllFromMe = ISMINE_SPENDABLE;
         for (const CTxIn& txin : wtx.vin) {
-            isminetype mine = wallet->IsMine(txin);
+            isminetype mine = wallet->IsMine(wtx, txin);
             if (fAllFromMe > mine) fAllFromMe = mine;
         }
 
@@ -236,8 +236,8 @@ QString TransactionDesc::toHTML(CWallet* wallet, CWalletTx& wtx, TransactionReco
             // Mixed debit transaction
             //
             for (const CTxIn& txin : wtx.vin)
-                if (wallet->IsMine(txin))
-                    strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(txin, ISMINE_ALL)) + "<br>";
+                if (wallet->IsMine(wtx, txin))
+                    strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(wtx, txin, ISMINE_ALL)) + "<br>";
             for (const CTxOut& txout : wtx.vout)
                 if (wallet->IsMine(txout))
                     strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet->GetCredit(wtx, txout, ISMINE_ALL)) + "<br>";
@@ -286,8 +286,8 @@ QString TransactionDesc::toHTML(CWallet* wallet, CWalletTx& wtx, TransactionReco
     if (fDebug) {
         strHTML += "<hr><br>" + tr("Debug information") + "<br><br>";
         for (const CTxIn& txin : wtx.vin)
-            if (wallet->IsMine(txin))
-                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(txin, ISMINE_ALL)) + "<br>";
+            if (wallet->IsMine(wtx, txin))
+                strHTML += "<b>" + tr("Debit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, -wallet->GetDebit(wtx, txin, ISMINE_ALL)) + "<br>";
         for (const CTxOut& txout : wtx.vout)
             if (wallet->IsMine(txout))
                 strHTML += "<b>" + tr("Credit") + ":</b> " + BitcoinUnits::formatHtmlWithUnit(unit, wallet->GetCredit(wtx, txout, ISMINE_ALL)) + "<br>";
@@ -299,7 +299,7 @@ QString TransactionDesc::toHTML(CWallet* wallet, CWalletTx& wtx, TransactionReco
         strHTML += "<ul>";
 
         for (const CTxIn& txin : wtx.vin) {
-            COutPoint prevout = wallet->findMyOutPoint(txin);
+            COutPoint prevout = wallet->findMyOutPoint(wtx, txin);
 
             CCoins prev;
             if (pcoinsTip->GetCoins(prevout.hash, prev)) {

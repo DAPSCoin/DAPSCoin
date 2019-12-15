@@ -361,7 +361,7 @@ void SendMoney(const CTxDestination& address, CAmount nValue, CWalletTx& wtxNew,
         throw JSONRPCError(RPC_WALLET_ERROR, strError);
     }
     if (!pwalletMain->CommitTransaction(wtxNew, reservekey, (!fUseIX ? "tx" : "ix")))
-        throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of wallet.dat and coins were spent in the copy but not marked as spent here.");
+        throw JSONRPCError(RPC_WALLET_ERROR, "Error: The transaction was rejected! This might happen if some of the coins in your wallet were already spent, such as if you used a copy of multisig_wallet.dat and coins were spent in the copy but not marked as spent here.");
 }
 
 UniValue sendtoaddress(const UniValue& params, bool fHelp)
@@ -388,8 +388,8 @@ UniValue sendtoaddress(const UniValue& params, bool fHelp)
     CWalletTx wtx;
 
     EnsureWalletIsUnlocked();
-
-    if (!pwalletMain->SendToStealthAddress(stealthAddr, nAmount, wtx)) {
+    CPartialTransaction ptx;
+    if (!pwalletMain->SendToStealthAddress(ptx, stealthAddr, nAmount, wtx)) {
         throw JSONRPCError(RPC_WALLET_ERROR,
                            "Failed to create transaction.");
     }
@@ -420,8 +420,8 @@ UniValue sendtoaddressix(const UniValue& params, bool fHelp)
     CWalletTx wtx;
 
     EnsureWalletIsUnlocked();
-
-    if (!pwalletMain->SendToStealthAddress(stealthAddr, nAmount, wtx)) {
+    CPartialTransaction ptx;
+    if (!pwalletMain->SendToStealthAddress(ptx, stealthAddr, nAmount, wtx)) {
         throw JSONRPCError(RPC_WALLET_ERROR,
                            "Failed to create transaction.");
     }
@@ -797,7 +797,7 @@ UniValue movecmd(const UniValue& params, bool fHelp)
     debit.nTime = nNow;
     debit.strOtherAccount = strTo;
     debit.strComment = strComment;
-    walletdb.WriteAccountingEntry(debit);
+    pwalletMain->AddAccountingEntry(debit, walletdb);
 
     // Credit
     CAccountingEntry credit;
@@ -807,7 +807,7 @@ UniValue movecmd(const UniValue& params, bool fHelp)
     credit.nTime = nNow;
     credit.strOtherAccount = strFrom;
     credit.strComment = strComment;
-    walletdb.WriteAccountingEntry(credit);
+    pwalletMain->AddAccountingEntry(credit, walletdb);
 
     if (!walletdb.TxnCommit())
         throw JSONRPCError(RPC_DATABASE_ERROR, "database error");
@@ -1353,11 +1353,10 @@ UniValue listtransactions(const UniValue& params, bool fHelp)
 
     UniValue ret(UniValue::VARR);
 
-    std::list<CAccountingEntry> acentries;
-    CWallet::TxItems txOrdered = pwalletMain->OrderedTxItems(acentries, strAccount);
+    const CWallet::TxItems & txOrdered = pwalletMain->wtxOrdered;
 
     // iterate backwards until we have nCount items to return:
-    for (CWallet::TxItems::reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
+    for (CWallet::TxItems::const_reverse_iterator it = txOrdered.rbegin(); it != txOrdered.rend(); ++it) {
         CWalletTx* const pwtx = (*it).second.first;
         if (pwtx != 0)
             ListTransactions(*pwtx, strAccount, 0, true, ret, filter);
@@ -1453,8 +1452,7 @@ UniValue listaccounts(const UniValue& params, bool fHelp)
         }
     }
 
-    list<CAccountingEntry> acentries;
-    CWalletDB(pwalletMain->strWalletFile).ListAccountCreditDebit("*", acentries);
+    const list<CAccountingEntry> & acentries = pwalletMain->laccentries;
     for (const CAccountingEntry& entry : acentries)
         mapAccountBalances[entry.strAccount] += entry.nCreditDebit;
 
@@ -1625,7 +1623,7 @@ UniValue backupwallet(const UniValue& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "backupwallet \"destination\"\n"
-            "\nSafely copies wallet.dat to destination, which can be a directory or a path with filename.\n"
+            "\nSafely copies multisig_wallet.dat to destination, which can be a directory or a path with filename.\n"
             "\nArguments:\n"
             "1. \"destination\"   (string) The destination directory or file\n"
             "\nExamples:\n" +
@@ -1637,7 +1635,7 @@ UniValue backupwallet(const UniValue& params, bool fHelp)
     if (!BackupWallet(*pwalletMain, strDest))
         throw JSONRPCError(RPC_WALLET_ERROR, "Error: Wallet backup failed!");
 
-    return NullUniValue;
+    return "Done";
 }
 
 
@@ -1723,14 +1721,23 @@ UniValue unlockwallet(const UniValue& params, bool fHelp)
     if (!pwalletMain->IsLocked() && pwalletMain->fWalletUnlockAnonymizeOnly && anonymizeOnly)
         throw JSONRPCError(RPC_WALLET_ALREADY_UNLOCKED, "Error: Wallet is already unlocked.");
 
+    // Get the timeout
+    int64_t nSleepTime = params[1].get_int64();
+    // Timeout cannot be negative, otherwise it will relock immediately
+    if (nSleepTime < 0) {
+        throw JSONRPCError(RPC_INVALID_PARAMETER, "Timeout cannot be negative.");
+    }
+    // Clamp timeout
+    constexpr int64_t MAX_SLEEP_TIME = 100000000; // larger values trigger a macos/libevent bug?
+    if (nSleepTime > MAX_SLEEP_TIME) {
+        nSleepTime = MAX_SLEEP_TIME;
+    }
+
     if (!pwalletMain->Unlock(strWalletPass, anonymizeOnly))
         throw JSONRPCError(RPC_WALLET_PASSPHRASE_INCORRECT, "Error: The wallet passphrase entered was incorrect.");
 
     pwalletMain->TopUpKeyPool();
 
-    int64_t nSleepTime = params[1].get_int64();
-    LOCK(cs_nWalletUnlockTime);
-    nWalletUnlockTime = GetTime() + nSleepTime;
 
     if (nSleepTime > 0) {
         nWalletUnlockTime = GetTime () + nSleepTime;
@@ -2767,8 +2774,8 @@ UniValue sendtostealthaddress(const UniValue& params, bool fHelp)
     CWalletTx wtx;
 
     EnsureWalletIsUnlocked();
-
-    if (!pwalletMain->SendToStealthAddress(stealthAddr, nAmount, wtx)) {
+    CPartialTransaction ptx;
+    if (!pwalletMain->SendToStealthAddress(ptx, stealthAddr, nAmount, wtx)) {
         throw JSONRPCError(RPC_WALLET_ERROR,
                            "Cannot create transaction.");
     }
@@ -2862,6 +2869,139 @@ UniValue revealviewprivatekey(const UniValue& params, bool fHelp) {
     return CBitcoinSecret(view).ToString();
 }
 
+UniValue showcombokey(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                "showcombokey \n"
+                "\nAdd all co-signers except this wallet.\n"
+                "\nArguments:\n"
+                "\nResult:\n"
+                "\nExamples:\n" +
+                HelpExampleCli("showcombokey", "") + HelpExampleCli("showcombokey", "\"\"") +
+                HelpExampleCli("showcombokey", "") + HelpExampleRpc("showcombokey", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacywallet to create one.");
+    }
+
+    EnsureWalletIsUnlocked();
+
+    ComboKey combo = pwalletMain->MyComboKey();
+
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << combo;
+    return HexStr(ssTx.begin(), ssTx.end());
+}
+
+UniValue showmultisigaddress(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                "showmultisigaddress \n"
+                "\nAdd all co-signers except this wallet.\n"
+                "\nArguments:\n"
+                "\nResult:\n"
+                "\nExamples:\n" +
+                HelpExampleCli("showmultisigaddress", "") + HelpExampleCli("showmultisigaddress", "\"\"") +
+                HelpExampleCli("showmultisigaddress", "") + HelpExampleRpc("showmultisigaddress", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacywallet to create one.");
+    }
+    std::string combo = pwalletMain->MyMultisigPubAddress();
+    return combo;
+}
+
+UniValue addcosigners(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() < 1)
+        throw runtime_error(
+                "addcosigners \n"
+                "\nAdd all co-signers except this wallet.\n"
+                "\nArguments:\n"
+                "\nResult:\n"
+                "\nExamples:\n" +
+                HelpExampleCli("addCoSigners", "combo1 combo2") + HelpExampleCli("addCoSigners", "\"\"") +
+                HelpExampleCli("addCoSigners", "") + HelpExampleRpc("addCoSigners", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacywallet to create one.");
+    }
+
+    EnsureWalletIsUnlocked();
+
+    for (size_t i = 0; i < params.size(); i++) {
+    	std::string hex = params[i].get_str();
+    	if (!IsHex(hex)) throw runtime_error("Fail to decode combo key " + std::to_string(i + 1));
+    	vector<unsigned char> comboData(ParseHex(hex));
+    	CDataStream ssdata(comboData, SER_NETWORK, PROTOCOL_VERSION);
+    	ComboKey combo;
+    	try {
+    		ssdata >> combo;
+    	} catch (const std::exception&) {
+    		throw runtime_error("Fail to decode combo key " + std::to_string(i + 1));
+    	}
+    	if (pwalletMain) {
+    		pwalletMain->AddCosignerKeyAtIndex(combo, pwalletMain->ReadScreenIndex());
+    	}
+    }
+
+    pwalletMain->SetNumSigners(params.size() + 1);
+    pwalletMain->GenerateMultisigWallet(pwalletMain->ReadNumSigners());
+
+    return pwalletMain->MyMultisigPubAddress();
+}
+
+UniValue cosigntransaction(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+                "cosigntransaction <hexcode>\n"
+                "\nCosign a transaction.\n"
+                "\nArguments:\n"
+                "\nResult:\n"
+                "\nExamples:\n" +
+                HelpExampleCli("cosigntransaction", "hexcode") + HelpExampleCli("cosigntransaction", "\"\"") +
+                HelpExampleCli("cosigntransaction", "") + HelpExampleRpc("cosigntransaction", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacywallet to create one.");
+    }
+
+    EnsureWalletIsUnlocked();
+
+    std::string hexPartial = params[0].get_str();
+	if (!IsHex(hexPartial)) throw runtime_error("Invalid hex code");
+    
+    vector<unsigned char> partialTxData(ParseHex(hexPartial));
+	CDataStream ssdata(partialTxData, SER_NETWORK, PROTOCOL_VERSION);
+	CPartialTransaction partialTx;
+	try {
+		ssdata >> partialTx;
+	} catch (const std::exception&) {
+		throw runtime_error("Fail to parse hex code");
+	}
+    bool ret = false;
+    try {
+        ret = pwalletMain->CoSignPartialTransaction(partialTx);
+    } catch(std::exception& e) {
+        throw runtime_error(e.what());
+    }
+    if (!ret) {
+        throw runtime_error("Fail to co-sign transaction");
+    }
+
+    CDataStream dex(SER_NETWORK, PROTOCOL_VERSION);
+    dex << partialTx;
+    std::string hex = HexStr(dex.begin(), dex.end());
+    return hex;
+}
+
 UniValue revealspendprivatekey(const UniValue& params, bool fHelp) {
     if (fHelp || params.size() != 0)
         throw runtime_error(
@@ -2885,6 +3025,45 @@ UniValue revealspendprivatekey(const UniValue& params, bool fHelp) {
     CKey spend;
     pwalletMain->mySpendPrivateKey(spend);
     return CBitcoinSecret(spend).ToString();
+}
+
+UniValue generatekeyimageforsync(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+                "generatekeyimageforsync \n"
+                "\nGenerate key image for sync.\n"
+                "\nArguments:\n"
+                "\n 1: hex of transaction in progress\n"
+                "\nResult:\n"
+                "\"Hex of sync key image\"    (string) \n"
+                "\nExamples:\n" +
+                HelpExampleCli("generatekeyimageforsync", "") + HelpExampleCli("generatekeyimageforsync", "\"\"") +
+                HelpExampleCli("generatekeyimageforsync", "") + HelpExampleRpc("generatekeyimageforsync", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacywallet to create one.");
+    }
+
+    EnsureWalletIsUnlocked();
+
+    std::string hexCode = params[0].get_str();
+	if (!IsHex(hexCode)) throw runtime_error("Invalid hex code");;
+	vector<unsigned char> partialTxHex(ParseHex(hexCode));
+	CDataStream ssdata(partialTxHex, SER_NETWORK, PROTOCOL_VERSION);
+	CPartialTransaction ptx;
+	try {
+		ssdata >> ptx;
+	} catch (const std::exception&) {
+		throw runtime_error("Invalid hex code");
+	}
+	CListPKeyImageAlpha keyImageAlpha;
+	pwalletMain->generatePKeyImageAlphaListFromPartialTx(ptx, keyImageAlpha);
+	CDataStream ssWritedata(SER_NETWORK, PROTOCOL_VERSION);
+	ssWritedata << keyImageAlpha;
+	std::string hex = HexStr(ssWritedata.begin(), ssWritedata.end());
+	return hex;
 }
 
 UniValue showtxprivatekeys(const UniValue& params, bool fHelp) {
@@ -2918,19 +3097,45 @@ UniValue showtxprivatekeys(const UniValue& params, bool fHelp) {
     return ret;
 }
 
+UniValue rescan(const UniValue& params, bool fHelp) {
+    if (fHelp || params.size() != 0)
+        throw runtime_error(
+                "rescan\n"
+                "\nRescan wallet transactions from the first block.\n"
+                "\nArguments:\n"
+                "\nResult:\n"
+                "\"scanned wallet transactions\"    \n"
+                "\nExamples:\n" +
+                HelpExampleCli("rescan", "") + HelpExampleCli("rescan", "\"\"") +
+                HelpExampleRpc("rescan", ""));
+
+    if (!pwalletMain) {
+        //privacy wallet is already created
+        throw JSONRPCError(RPC_PRIVACY_WALLET_EXISTED,
+                           "Error: There is no privacy wallet, please use createprivacyaccount to create one.");
+    }
+
+    EnsureWalletIsUnlocked();
+
+    int nHeight = 1;
+    if (!pwalletMain->RescanAfterUnlock(nHeight)) {
+        return "Failed to rescan";
+    }
+    return "Done";
+}
 
 UniValue rescanwallettransactions(const UniValue& params, bool fHelp) {
-    if (fHelp || params.size() > 1)
+    if (fHelp || params.size() != 1)
         throw runtime_error(
                 "rescanwallettransactions \"block height\"\n"
-                "\nRescan wallet transaction.\n"
+                "\nRescan wallet transactions from a certain block height.\n"
                 "\nArguments:\n"
                 "\nblock height: block height from which the chain will be rescanned\n"
                 "\nResult:\n"
-                "\"scanned wallet transaction\"    \n"
+                "\"scanned wallet transactions\"    \n"
                 "\nExamples:\n" +
                 HelpExampleCli("rescanwallettransactions", "") + HelpExampleCli("rescanwallettransactions", "\"\"") +
-                HelpExampleCli("rescanwallettransactions", "") + HelpExampleRpc("rescanwallettransactions", ""));
+                HelpExampleRpc("rescanwallettransactions", ""));
 
     if (!pwalletMain) {
         //privacy wallet is already created

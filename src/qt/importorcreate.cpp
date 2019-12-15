@@ -28,4 +28,4 @@ void ImportOrCreate::on_next()
         willRecover = true;
         accept();
     }
-}
+}

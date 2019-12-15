@@ -26,6 +26,7 @@ QComboBox:disabled,
   border: 1px solid rgb(51, 54, 54);
 }*/
 QDialog {
+  min-width: 500px;
   background: qlineargradient(
     x1: 0 y1: 0,
     x2: 1 y2: 1,
@@ -55,6 +56,14 @@ QDialog {
 }
 
 #SendCoinsDialog {
+  border-image: url(':/images/background') 0 0 0 0 stretch stretch;
+}
+
+#KeyImageSync {
+  border-image: url(':/images/background') 0 0 0 0 stretch stretch;
+}
+
+#CoSignTransaction {
   border-image: url(':/images/background') 0 0 0 0 stretch stretch;
 }
 
@@ -491,4 +500,30 @@ QWidget::right-arrow {
 }
 QWidget::right-arrow:disabled {
   image: url(":/images/rightArrow_small_dark");
+}
+
+QLineEdit#textComboKey{
+  color: white;
+}
+
+QSlider::groove:horizontal { 
+	background-color: gray;
+	border: 0px solid #424242; 
+	height: 10px; 
+	border-radius: 4px;
+}
+
+QSlider::handle:horizontal { 
+	background-color: lightblue; 
+	border: 2px solid lightblue; 
+	width: 16px; 
+	height: 20px; 
+	line-height: 20px; 
+	margin-top: -5px; 
+	margin-bottom: -5px; 
+	border-radius: 10px; 
+}
+
+QSlider::handle:horizontal:hover { 
+	border-radius: 10px;
 }

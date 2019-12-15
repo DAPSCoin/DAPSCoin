@@ -130,7 +130,6 @@ bool fDebug = false;
 bool fPrintToConsole = false;
 bool fPrintToDebugLog = true;
 bool fDaemon = false;
-bool fServer = false;
 string strMiscWarning;
 bool fLogTimestamps = false;
 bool fLogIPs = false;
@@ -450,7 +449,7 @@ boost::filesystem::path GetDefaultDataDir()
 // Unix: ~/.dapscoin
 #ifdef WIN32
     // Windows
-    return GetSpecialFolderPath(CSIDL_APPDATA) / "DAPScoin";
+    return GetSpecialFolderPath(CSIDL_APPDATA) / "DAPScoin-Multisig";
 #else
     fs::path pathRet;
     char* pszHome = getenv("HOME");
@@ -462,10 +461,10 @@ boost::filesystem::path GetDefaultDataDir()
     // Mac
     pathRet /= "Library/Application Support";
     TryCreateDirectory(pathRet);
-    return pathRet / "DAPScoin";
+    return pathRet / "DAPScoin-Multisig";
 #else
     // Unix
-    return pathRet / ".dapscoin";
+    return pathRet / ".dapscoin-multisig";
 #endif
 #endif
 }
@@ -826,6 +825,18 @@ bool PointHashingSuccessively(const CPubKey& pk, const unsigned char* tweak, uns
         memcpy(pubData + 1, hash.begin(), 32);
         newPubKey.Set(pubData, pubData + 33);
         memcpy(out, newPubKey.begin(), newPubKey.size());
+    }
+    return true;
+}
+
+bool MultiplyScalar(unsigned char* ret, const unsigned char* input, int times)
+{
+    if (!ret || !input) return false;
+    memcpy(ret, input, 32);
+    for(int i = 1; i < times; i++) {
+        if (!secp256k1_ec_privkey_tweak_add(ret, input)) {
+            return false;
+        }
     }
     return true;
 }

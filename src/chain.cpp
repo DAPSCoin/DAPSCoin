@@ -76,4 +76,4 @@ uint256 CBlockIndex::GetBlockTrust() const
         uint256 bnPoWTrust = ((~uint256(0) >> 20) / (bnTarget + 1));
         return bnPoWTrust > 1 ? bnPoWTrust : 1;
     }
-}
+}

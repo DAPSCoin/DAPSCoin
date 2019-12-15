@@ -54,7 +54,7 @@ UniValue ping(const UniValue& params, bool fHelp)
         pNode->fPingQueued = true;
     }
 
-    return NullUniValue;
+    return "Done";
 }
 
 static void CopyNodeStats(std::vector<CNodeStats>& vstats)
@@ -199,7 +199,7 @@ UniValue addnode(const UniValue& params, bool fHelp)
         vAddedNodes.erase(it);
     }
 
-    return NullUniValue;
+    return "Done";
 }
 
 UniValue disconnectnode(const UniValue& params, bool fHelp)
@@ -218,7 +218,7 @@ UniValue disconnectnode(const UniValue& params, bool fHelp)
     if (pNode == NULL)
         throw JSONRPCError(RPC_CLIENT_NODE_NOT_CONNECTED, "Node not found in connected nodes");
     pNode->CloseSocketDisconnect();
-    return NullUniValue;
+    return "Done";
 }
 
 UniValue getaddednodeinfo(const UniValue& params, bool fHelp)
@@ -483,7 +483,7 @@ UniValue setban(const UniValue& params, bool fHelp)
     }
     DumpBanlist(); //store banlist to disk
     uiInterface.BannedListChanged();
-    return NullUniValue;
+    return "Done";
 }
 
 UniValue listbanned(const UniValue& params, bool fHelp)
@@ -525,5 +525,5 @@ UniValue clearbanned(const UniValue& params, bool fHelp)
     CNode::ClearBanned();
     DumpBanlist(); //store banlist to disk
     uiInterface.BannedListChanged();
-    return NullUniValue;
+    return "Done";
 }

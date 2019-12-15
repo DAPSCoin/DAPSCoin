@@ -284,4 +284,4 @@ BOOST_AUTO_TEST_CASE(rfc6979_hmac_sha256)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-#endif
+#endif

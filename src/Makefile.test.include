@@ -1,7 +1,7 @@
-TESTS += test/test_dapscoin test/bitcoin-util-test.py
-bin_PROGRAMS += test/test_dapscoin
+TESTS += test/test_dapscoin-multisig test/bitcoin-util-test.py
+bin_PROGRAMS += test/test_dapscoin-multisig
 TEST_SRCDIR = test
-TEST_BINARY=test/test_dapscoin$(EXEEXT)
+TEST_BINARY=test/test_dapscoin-multisig$(EXEEXT)
 
 
 EXTRA_DIST += \
@@ -80,23 +80,23 @@ BITCOIN_TESTS += \
   test/rpc_wallet_tests.cpp
 endif
 
-test_test_dapscoin_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
-test_test_dapscoin_CPPFLAGS = $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS)
+test_test_dapscoin_multisig_SOURCES = $(BITCOIN_TESTS) $(JSON_TEST_FILES) $(RAW_TEST_FILES)
+test_test_dapscoin_multisig_CPPFLAGS = $(BITCOIN_INCLUDES) -I$(builddir)/test/ $(TESTDEFS)
 
-test_test_dapscoin_LDADD = $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
+test_test_dapscoin_multisig_LDADD = $(LIBBITCOIN_SERVER) $(LIBBITCOIN_CLI) $(LIBBITCOIN_COMMON) $(LIBBITCOIN_UTIL) $(LIBBITCOIN_CRYPTO) $(LIBUNIVALUE) $(LIBLEVELDB) $(LIBMEMENV) \
   $(BOOST_LIBS) $(BOOST_UNIT_TEST_FRAMEWORK_LIB) $(LIBSECP256K1) $(EVENT_LIBS) $(EVENT_PTHREADS_LIBS) $(LIBSECP256K1) $(LIBSECP256K1_2)
 if ENABLE_WALLET
-test_test_dapscoin_LDADD += $(LIBBITCOIN_WALLET) $(LIBSECP256K1) $(LIBSECP256K1_2)
+test_test_dapscoin_multisig_LDADD += $(LIBBITCOIN_WALLET) $(LIBSECP256K1) $(LIBSECP256K1_2)
 endif
 
-test_test_dapscoin_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
-test_test_dapscoin_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
+test_test_dapscoin_multisig_LDADD += $(LIBBITCOIN_CONSENSUS) $(BDB_LIBS) $(SSL_LIBS) $(CRYPTO_LIBS) $(MINIUPNPC_LIBS) $(ZMQ_LIBS)
+test_test_dapscoin_multisig_LDFLAGS = $(RELDFLAGS) $(AM_LDFLAGS) $(LIBTOOL_APP_LDFLAGS) -static
 
 if ENABLE_ZMQ
-test_test_dapscoin_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
+test_test_dapscoin_multisig_LDADD += $(LIBBITCOIN_ZMQ) $(ZMQ_LIBS)
 endif
 
-nodist_test_test_dapscoin_SOURCES = $(GENERATED_TEST_FILES)
+nodist_test_test_dapscoin_multisig_SOURCES = $(GENERATED_TEST_FILES)
 
 $(BITCOIN_TESTS): $(GENERATED_TEST_FILES)
 
@@ -110,7 +110,7 @@ dapscoin_test_check: $(TEST_BINARY) FORCE
 	$(MAKE) check-TESTS TESTS=$^
 
 dapscoin_test_clean : FORCE
-	rm -f $(CLEAN_BITCOIN_TEST) $(test_test_dapscoin_OBJECTS) $(TEST_BINARY)
+	rm -f $(CLEAN_BITCOIN_TEST) $(test_test_dapscoin_multisig_OBJECTS) $(TEST_BINARY)
 
 check-local:
 	$(AM_V_at)$(MAKE) $(AM_MAKEFLAGS) -C secp256k1 check

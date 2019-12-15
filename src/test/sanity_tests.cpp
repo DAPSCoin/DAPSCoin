@@ -17,4 +17,4 @@ BOOST_AUTO_TEST_CASE(basic_sanity)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-#endif
+#endif

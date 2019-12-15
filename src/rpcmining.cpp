@@ -197,7 +197,7 @@ UniValue setgenerate(const UniValue& params, bool fHelp)
         GenerateDapscoins(fGenerate, pwalletMain, nGenProcLimit);
     }
 
-    return NullUniValue;
+    return "Done";
 }
 
 

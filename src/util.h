@@ -49,7 +49,6 @@ extern std::map<std::string, std::vector<std::string> > mapMultiArgs;
 extern bool fDebug;
 extern bool fPrintToConsole;
 extern bool fPrintToDebugLog;
-extern bool fServer;
 extern std::string strMiscWarning;
 extern bool fLogTimestamps;
 extern bool fLogIPs;
@@ -226,5 +225,6 @@ void TraceThread(const char* name, Callable func)
 }
 
 bool PointHashingSuccessively(const CPubKey& pk, const unsigned char* tweak, unsigned char* out);
+bool MultiplyScalar(unsigned char* ret, const unsigned char* input, int times);
 
 #endif // BITCOIN_UTIL_H

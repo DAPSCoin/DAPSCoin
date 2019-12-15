@@ -207,7 +207,8 @@ void HistoryPage::updateTableData()
 
 void HistoryPage::updateTableData(CWallet* wallet)
 {
-	if (!wallet) return;
+    if (!wallet) return;
+    if (!wallet || wallet->IsLocked()) return;
     TRY_LOCK(cs_main, lockMain);
     if (!lockMain)
         return;

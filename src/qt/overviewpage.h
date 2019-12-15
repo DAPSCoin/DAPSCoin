@@ -63,6 +63,7 @@ signals:
 private:
     QTimer* timer;
     QTimer* pingNetworkInterval;
+    QTimer* timerBlockHeightLabel;
     Ui::OverviewPage* ui;
     ClientModel* clientModel;
     WalletModel* walletModel;

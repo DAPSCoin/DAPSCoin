@@ -39,6 +39,7 @@ public:
     void setClientModel(ClientModel* clientModel);
     void setModel(WalletModel* model);
     bool fSplitBlock;
+    void FillExistingTxHexCode();
 
 public slots:
     SendCoinsEntry* addEntry();
@@ -53,14 +54,28 @@ private:
     CAmount send_amount;
 
 private:
-    void sendTx();
+    CPartialTransaction sendTx();
     
 private slots:
     void dialogIsFinished(int result);
     void on_sendButton_clicked();
     void setBalance(const CAmount& balance, const CAmount& unconfirmedBalance, const CAmount& immatureBalance, 
                               const CAmount& watchOnlyBalance, const CAmount& watchUnconfBalance, const CAmount& watchImmatureBalance);
+    void coinControlFeatureChanged(bool);
+    void coinControlButtonClicked();
+    void coinControlChangeChecked(int);
+    void coinControlChangeEdited(const QString&);
+    void coinControlUpdateLabels();
+    void coinControlClipboardQuantity();
+    void coinControlClipboardAmount();
+    void coinControlClipboardFee();
+    void coinControlClipboardAfterFee();
+    void coinControlClipboardBytes();
+    void coinControlClipboardPriority();
+    void coinControlClipboardLowOutput();
+    void coinControlClipboardChange();
 
+    void on_copyButton_Clicked();
 signals:
 
 };

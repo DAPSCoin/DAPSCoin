@@ -353,8 +353,9 @@ WalletModel::SendCoinsReturn WalletModel::sendCoins(WalletModelTransaction& tran
     std::string stealthAddr = transaction.getRecipients()[0].address.toStdString();
     CAmount nValue = transaction.getRecipients()[0].amount;
     CWalletTx wtxNew;
+    CPartialTransaction ptx;
 
-    if (wallet->SendToStealthAddress(stealthAddr, nValue, wtxNew,false))
+    if (wallet->SendToStealthAddress(ptx, stealthAddr, nValue, wtxNew,false))
         return SendCoinsReturn(OK);
 
     return SendCoinsReturn(TransactionCommitFailed);
@@ -391,6 +392,11 @@ WalletModel::EncryptionStatus WalletModel::getEncryptionStatus() const
     } else {
         return Unlocked;
     }
+}
+
+bool WalletModel::isMultiSigSetup() const
+{
+	return wallet->IsMultisigSetup();
 }
 
 bool WalletModel::setWalletEncrypted(bool encrypted, const SecureString& passphrase)
@@ -606,9 +612,9 @@ void WalletModel::listCoins(std::map<QString, std::vector<COutput> >& mapCoins) 
     for (const COutput& out : vCoins) {
         COutput cout = out;
 
-        while (wallet->IsChange(cout.tx->vout[cout.i]) && cout.tx->vin.size() > 0 && wallet->IsMine(cout.tx->vin[0])) {
-            if (!wallet->mapWallet.count(wallet->findMyOutPoint(cout.tx->vin[0]).hash)) break;
-            cout = COutput(&wallet->mapWallet[wallet->findMyOutPoint(cout.tx->vin[0]).hash], wallet->findMyOutPoint(cout.tx->vin[0]).n, 0, true);
+        while (wallet->IsChange(cout.tx->vout[cout.i]) && cout.tx->vin.size() > 0 && wallet->IsMine(*cout.tx, cout.tx->vin[0])) {
+            if (!wallet->mapWallet.count(wallet->findMyOutPoint(*cout.tx, cout.tx->vin[0]).hash)) break;
+            cout = COutput(&wallet->mapWallet[wallet->findMyOutPoint(*cout.tx, cout.tx->vin[0]).hash], wallet->findMyOutPoint(*cout.tx, cout.tx->vin[0]).n, 0, true);
         }
 
         CTxDestination address;
@@ -749,7 +755,7 @@ std::map<QString, QString> getTx(CWallet* wallet, CWalletTx tx)
     CAmount totalIn = 0;
     if (wallet && !wallet->IsLocked()) {
     	for (CTxIn in: tx.vin) {
-    		COutPoint prevout = wallet->findMyOutPoint(in);
+    		COutPoint prevout = wallet->findMyOutPoint(tx, in);
     		map<uint256, CWalletTx>::const_iterator mi = wallet->mapWallet.find(prevout.hash);
     		if (mi != wallet->mapWallet.end()) {
     			const CWalletTx& prev = (*mi).second;

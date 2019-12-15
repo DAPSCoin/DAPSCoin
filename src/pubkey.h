@@ -240,4 +240,43 @@ struct CExtPubKey {
     }
 };
 
+class ComboKey {
+public:
+	CPubKey pubSpend;
+	std::vector<unsigned char> privView;
+	ADD_SERIALIZE_METHODS;
+
+	template <typename Stream, typename Operation>
+	inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+		READWRITE(pubSpend);
+		READWRITE(privView);
+	}
+	friend bool operator==(const ComboKey& a, const ComboKey& b) {
+		return a.privView == b.privView && a.pubSpend == b.pubSpend;
+	}
+};
+
+class ComboKeyList {
+public:
+	std::vector<ComboKey> comboKeys;
+	ADD_SERIALIZE_METHODS;
+
+	template <typename Stream, typename Operation>
+	inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+		READWRITE(comboKeys);
+	}
+
+	void AddKey(ComboKey combo) {
+		if (IsKeyAdded(combo)) return;
+		comboKeys.push_back(combo);
+	}
+
+	bool IsKeyAdded(ComboKey combo) {
+		for (size_t i = 0; i < comboKeys.size(); i++) {
+			if (comboKeys[i] == combo) return true;
+		}
+		return false;
+	}
+};
+
 #endif // BITCOIN_PUBKEY_H

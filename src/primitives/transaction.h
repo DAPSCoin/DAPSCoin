@@ -71,7 +71,7 @@ public:
     std::string ToString() const;
     std::string ToStringShort() const;
 
-    uint256 GetHash();
+    uint256 GetHash() const;
 
 };
 
@@ -381,8 +381,6 @@ public:
         return a.hash != b.hash;
     }
     std::string ToString() const;
-
-    bool GetCoinAge(uint64_t& nCoinAge) const;  // ppcoin: get transaction coin age
 };
 
 /** A mutable version of CTransaction. */
@@ -526,6 +524,127 @@ public:
 
     uint256 GetHash() {
     	return SerializeHash(*this);
+    }
+};
+
+/** A partial version of CTransaction that contains additional information for multi sig transaction */
+struct CPartialTransaction
+{
+    int32_t nVersion;
+    std::vector<CTxIn> vin;
+    std::vector<CTxOut> vout;
+    uint32_t nLockTime;
+    //For stealth transactions
+    char hasPaymentID;
+    uint64_t paymentID;
+    uint32_t txType;
+    std::vector<unsigned char> bulletproofs;
+
+    CAmount nTxFee;
+    uint256 c;
+    std::vector<std::vector<uint256>> S;
+    CKeyImage ntxFeeKeyImage;
+    std::vector<unsigned char> receiver;
+
+    //this marks the participants who already signs the transaction
+    //If N/N case, this is the hashes of the private keys of participants
+    //if N-1/N case, this is the hashes of the hash of the ECDHs between participants
+    std::vector<uint256> hashesOfSignedSecrets;
+    uint256 selectedUTXOHash;
+    uint256 encodedC_PI;
+    std::vector<std::vector<unsigned char>> blinds;
+
+    CPartialTransaction() {};
+    CPartialTransaction(const CTransaction& tx)
+    {
+    	*const_cast<int*>(&nVersion) = tx.nVersion;
+    	*const_cast<std::vector<CTxIn>*>(&vin) = tx.vin;
+    	*const_cast<std::vector<CTxOut>*>(&vout) = tx.vout;
+    	*const_cast<unsigned int*>(&nLockTime) = tx.nLockTime;
+    	*const_cast<char*>(&hasPaymentID) = tx.hasPaymentID;
+    	*const_cast<uint64_t*>(&paymentID) = tx.paymentID;
+    	*const_cast<uint32_t*>(&txType) = tx.txType;
+    	bulletproofs = tx.bulletproofs;
+    	c = tx.c;
+    	S = tx.S;
+    	//*const_cast<std::vector<CKeyImage>*>(&keyImages) = tx.keyImages;
+    	//*const_cast<std::vector<std::vector<CTxIn>>*>(&decoys) = tx.decoys;
+    	nTxFee = tx.nTxFee;
+    	ntxFeeKeyImage = tx.ntxFeeKeyImage;
+        for(int i = 0; i < tx.vout.size(); i++) {
+            std::vector<unsigned char> blind;
+            std::copy(tx.vout[i].maskValue.inMemoryRawBind.begin(), tx.vout[i].maskValue.inMemoryRawBind.end(), std::back_inserter(blind));
+            blinds.push_back(blind);
+        }
+    }
+    CTransaction ToTransaction() const {
+    	CTransaction tx;
+    	*const_cast<int*>(&tx.nVersion) = nVersion;
+    	*const_cast<std::vector<CTxIn>*>(&tx.vin) = vin;
+    	*const_cast<std::vector<CTxOut>*>(&tx.vout) = vout;
+    	*const_cast<unsigned int*>(&tx.nLockTime) = nLockTime;
+    	*const_cast<char*>(&tx.hasPaymentID) = hasPaymentID;
+    	*const_cast<uint64_t*>(&tx.paymentID) = paymentID;
+    	*const_cast<uint32_t*>(&tx.txType) = txType;
+    	tx.bulletproofs = bulletproofs;
+    	tx.c = c;
+    	tx.S = S;
+    	//*const_cast<std::vector<CKeyImage>*>(&keyImages) = tx.keyImages;
+    	//*const_cast<std::vector<std::vector<CTxIn>>*>(&decoys) = tx.decoys;
+    	tx.nTxFee = nTxFee;
+    	tx.ntxFeeKeyImage = ntxFeeKeyImage;
+    	return tx;
+    }
+
+    ADD_SERIALIZE_METHODS;
+
+    template <typename Stream, typename Operation>
+    inline void SerializationOp(Stream& s, Operation ser_action, int nType, int nVersion) {
+        READWRITE(this->nVersion);
+        nVersion = this->nVersion;
+        READWRITE(vin);
+        READWRITE(vout);
+
+        READWRITE(nLockTime);
+        READWRITE(hasPaymentID);
+        if (hasPaymentID != 0) {
+            READWRITE(paymentID);
+        }
+        READWRITE(txType);
+
+        READWRITE(bulletproofs);
+
+        READWRITE(nTxFee);
+        READWRITE(c);
+        READWRITE(S);
+        READWRITE(ntxFeeKeyImage);
+        READWRITE(hashesOfSignedSecrets);
+        READWRITE(selectedUTXOHash);
+        READWRITE(encodedC_PI);
+        READWRITE(blinds);
+        READWRITE(receiver);
+    }
+
+    void copyFrom(const CPartialTransaction& ptx) {
+    	//*const_cast<std::vector<CKeyImage>*>(&keyImages) = tx.keyImages;
+    	//*const_cast<std::vector<std::vector<CTxIn>>*>(&decoys) = tx.decoys;
+    	this->nVersion = ptx.nVersion;
+    	*const_cast<std::vector<CTxIn>*>(&vin) = ptx.vin;
+    	*const_cast<std::vector<CTxOut>*>(&vout) = ptx.vout;
+    	this->nLockTime = ptx.nLockTime;
+    	this->hasPaymentID = ptx.hasPaymentID;
+    	this->paymentID = ptx.paymentID;
+    	this->txType = ptx.txType;
+    	this->bulletproofs = ptx.bulletproofs;
+    	this->nTxFee = ptx.nTxFee;
+    	this->c = ptx.c;
+    	this->S = ptx.S;
+    	this->ntxFeeKeyImage = ptx.ntxFeeKeyImage;
+    	this->hashesOfSignedSecrets = ptx.hashesOfSignedSecrets;
+    	this->selectedUTXOHash = ptx.selectedUTXOHash;
+    	this->encodedC_PI = ptx.encodedC_PI;
+    	this->blinds = ptx.blinds;
+        this->receiver = ptx.receiver;
     }
 };
 

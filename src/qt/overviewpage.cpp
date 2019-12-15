@@ -131,7 +131,7 @@ OverviewPage::OverviewPage(QWidget* parent) : QDialog(parent, Qt::WindowSystemMe
 
     initSyncCircle(.8);
 
-    QTimer* timerBlockHeightLabel = new QTimer(this);
+    timerBlockHeightLabel = new QTimer(this);
     connect(timerBlockHeightLabel, SIGNAL(timeout()), this, SLOT(showBlockCurrentHeight()));
     timerBlockHeightLabel->start(45000);
 
@@ -154,9 +154,7 @@ OverviewPage::~OverviewPage()
 void OverviewPage::getPercentage(CAmount nUnlockedBalance, QString& sDAPSPercentage)
 {
     int nPrecision = 2;
-
     double dPercentage = 100.0;
-    
     sDAPSPercentage = "(" + QLocale(QLocale::system()).toString(dPercentage, 'f', nPrecision) + " %)";
 }
 void OverviewPage::setBalance(const CAmount& balance, const CAmount& unconfirmedBalance, const CAmount& immatureBalance, 

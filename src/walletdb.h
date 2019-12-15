@@ -29,6 +29,7 @@ class CMasterKey;
 class CScript;
 class CWallet;
 class CWalletTx;
+struct CPartialTransaction;
 class uint160;
 class uint256;
 
@@ -76,7 +77,7 @@ public:
     }
 };
 
-/** Access to the wallet database (wallet.dat) */
+/** Access to the wallet database (multisig_wallet.dat) */
 class CWalletDB : public CDB
 {
 public:
@@ -96,6 +97,13 @@ public:
     bool WriteStakingStatus(bool status);
     bool ReadStakingStatus();
 
+    bool WriteNumSigners(int numSigners);
+
+    int ReadNumSigners();
+    void WriteScreenIndex(int index);
+
+    int ReadScreenIndex();
+    
     bool Write2FA(bool status);
     bool Read2FA();
 
@@ -120,6 +128,11 @@ public:
     bool WriteKeyImage(const std::string& outpointKey, const CKeyImage& k);
     bool ReadKeyImage(const std::string& outpointKey, CKeyImage& k);
 
+    bool WriteHasWaitingTx(const bool hasWaitingTx);
+    bool ReadHasWaitingTx();
+    bool WritePendingForSigningTx(const CPartialTransaction& ptx);
+    bool ReadPendingForSigningTx(CPartialTransaction& ptx);
+
     bool WriteKey(const CPubKey& vchPubKey, const CPrivKey& vchPrivKey, const CKeyMetadata& keyMeta);
     bool WriteCryptedKey(const CPubKey& vchPubKey, const std::vector<unsigned char>& vchCryptedSecret, const CKeyMetadata& keyMeta);
     bool WriteMasterKey(unsigned int nID, const CMasterKey& kMasterKey);
@@ -134,6 +147,8 @@ public:
 
     bool WriteBestBlock(const CBlockLocator& locator);
     bool ReadBestBlock(CBlockLocator& locator);
+    bool WriteComboKeys(const ComboKeyList& combo);
+    bool ReadAllComboKeys(ComboKeyList& comboData);
 
     bool WriteOrderPosNext(int64_t nOrderPosNext);
 
@@ -154,6 +169,10 @@ public:
 
     bool WriteMinVersion(int nVersion);
 
+    /// This writes directly to the database, and will not update the CWallet's cached accounting entries!
+    /// Use wallet.AddAccountingEntry instead, to write *and* update its caches.
+    bool WriteAccountingEntry_Backend(const CAccountingEntry& acentry);
+
     bool ReadAccount(const std::string& strAccount, CAccount& account);
     bool WriteAccount(const std::string& strAccount, const CAccount& account);
 
@@ -171,7 +190,6 @@ public:
     bool WriteCryptedHDChain(const CHDChain& chain);
     bool WriteHDPubKey(const CHDPubKey& hdPubKey, const CKeyMetadata& keyMeta);
 
-    bool WriteAccountingEntry(const CAccountingEntry& acentry);
     CAmount GetAccountCreditDebit(const std::string& strAccount);
     void ListAccountCreditDebit(const std::string& strAccount, std::list<CAccountingEntry>& acentries);
 

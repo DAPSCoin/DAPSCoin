@@ -58,4 +58,4 @@ bool sanity_test_range_fmt()
 bool glibcxx_sanity_test()
 {
     return sanity_test_widen('a') && sanity_test_list(100) && sanity_test_range_fmt();
-}
+}

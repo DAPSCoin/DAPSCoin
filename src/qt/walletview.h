@@ -16,11 +16,13 @@ class OverviewPage;
 class HistoryPage;
 class ReceiveCoinsDialog;
 class SendCoinsDialog;
+class KeyImageSync;
 class OptionsPage;
 class SendCoinsRecipient;
 class TransactionView;
 class WalletModel;
 class BlockExplorer;
+class CoSignTransaction;
 
 QT_BEGIN_NAMESPACE
 class QLabel;
@@ -66,6 +68,8 @@ private:
     OptionsPage* optionsPage;
     HistoryPage* historyPage;
     SendCoinsDialog* sendCoinsPage;
+    KeyImageSync* keyImageSyncPage;
+    CoSignTransaction* cosignPage;
     BlockExplorer* explorerWindow;
     MasternodeList* masternodeListPage;
 
@@ -89,6 +93,9 @@ public slots:
     void gotoOptionsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
+    void gotoCoSignPage();
+    void gotoKeyImageSyncPage();
+
     /** Show MultiSend Dialog */
     void gotoMultiSendDialog();
     /** Show a multisig tab **/

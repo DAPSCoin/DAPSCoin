@@ -19,9 +19,12 @@
 #include "overviewpage.h"
 #include "optionspage.h"
 #include "receivecoinsdialog.h"
+#include "keyimagesync.h"
 #include "sendcoinsdialog.h"
+#include "keyimagesync.h"
 #include "signverifymessagedialog.h"
 #include "transactiontablemodel.h"
+#include "cosigntransaction.h"
 #include "transactionview.h"
 #include "walletmodel.h"
 
@@ -69,17 +72,26 @@ WalletView::WalletView(QWidget* parent) : QStackedWidget(parent),
 
     receiveCoinsPage = new ReceiveCoinsDialog();
     sendCoinsPage = new SendCoinsDialog();
+    keyImageSyncPage = new KeyImageSync();
+
     optionsPage = new OptionsPage();
     historyPage = new HistoryPage();
-    masternodeListPage = new MasternodeList();
+    cosignPage = new CoSignTransaction();
 
     addWidget(overviewPage);
     addWidget(historyPage);
     addWidget(receiveCoinsPage);
     addWidget(sendCoinsPage);
+    addWidget(keyImageSyncPage);
     addWidget(optionsPage);
     addWidget(explorerWindow);
-    addWidget(masternodeListPage);
+    addWidget(cosignPage);
+
+    QSettings settings;
+    if (settings.value("fShowMasternodesTab").toBool()) {
+        masternodeListPage = new MasternodeList();
+        addWidget(masternodeListPage);
+    }
 
     // Clicking on a transaction on the overview pre-selects the transaction on the transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
@@ -131,8 +143,12 @@ void WalletView::setClientModel(ClientModel* clientModel)
 
     overviewPage->setClientModel(clientModel);
     sendCoinsPage->setClientModel(clientModel);
-    masternodeListPage->setClientModel(clientModel);
-
+    cosignPage->setClientModel(clientModel);
+    keyImageSyncPage->setClientModel(clientModel);
+    QSettings settings;
+    if (settings.value("fShowMasternodesTab").toBool()) {
+        masternodeListPage->setClientModel(clientModel);
+    }
 }
 
 void WalletView::setWalletModel(WalletModel* walletModel)
@@ -142,11 +158,12 @@ void WalletView::setWalletModel(WalletModel* walletModel)
     // Put transaction list in tabs
     transactionView->setModel(walletModel);
     overviewPage->setWalletModel(walletModel);
-    masternodeListPage->setWalletModel(walletModel);
     historyPage->setModel(walletModel);
     receiveCoinsPage->setModel(walletModel);
     sendCoinsPage->setModel(walletModel);
+    keyImageSyncPage->setModel(walletModel);
     optionsPage->setModel(walletModel);
+    cosignPage->setModel(walletModel);
     if (walletModel) {
         // Receive and pass through messages from wallet model
         connect(walletModel, SIGNAL(message(QString, QString, unsigned int)), this, SIGNAL(message(QString, QString, unsigned int)));
@@ -211,12 +228,17 @@ void WalletView::gotoBlockExplorerPage()
 
 void WalletView::gotoMasternodePage()
 {
-    setCurrentWidget(masternodeListPage);
+    //disabled for multisig wallet
 }
 
 void WalletView::gotoReceiveCoinsPage()
 {
+	static bool loaded = false;
     setCurrentWidget(receiveCoinsPage);
+    if (!loaded) {
+    	receiveCoinsPage->loadAccount();
+    	loaded = true;
+    }
 }
 
 void WalletView::gotoOptionsPage()
@@ -226,7 +248,20 @@ void WalletView::gotoOptionsPage()
 
 void WalletView::gotoSendCoinsPage(QString addr)
 {
+    sendCoinsPage->FillExistingTxHexCode();
     setCurrentWidget(sendCoinsPage);
+}
+
+void WalletView::gotoCoSignPage()
+{
+    cosignPage->UpdateLabels();
+    setCurrentWidget(cosignPage);
+}
+
+void WalletView::gotoKeyImageSyncPage()
+{
+    keyImageSyncPage->updateKeyImageButtons();
+    setCurrentWidget(keyImageSyncPage);
 }
 
 void WalletView::gotoMultiSendDialog()

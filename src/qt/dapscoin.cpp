@@ -42,6 +42,9 @@
 
 #include "encryptdialog.h"
 #include "unlockdialog.h"
+#include "multisigsetupchoosenumsigners.h"
+#include "multisigsetupaddsigner.h"
+#include "multisigsetupfinish.h"
 #include "entermnemonics.h"
 
 #include <signal.h>
@@ -288,6 +291,7 @@ void BitcoinCore::handleRunawayException(std::exception* e)
 
 void BitcoinCore::registerNodeSignal()
 {
+    LogPrintf("REGISTERING SIGNAL");
     RegisterNodeSignals(GetNodeSignals());
 }
 
@@ -524,10 +528,36 @@ void BitcoinApplication::initializeResult(int retval)
                 unlockdlg.setWindowTitle("Unlock Keychain Wallet");
                 unlockdlg.setModel(walletModel);
                 unlockdlg.setStyleSheet(GUIUtil::loadStyleSheet());
-                if (unlockdlg.exec() == QDialog::Accepted) {
-                    walletUnlocked = true;
-                }
+                unlockdlg.setWindowFlags(Qt::WindowStaysOnTopHint);
+                if (unlockdlg.exec() != QDialog::Accepted)
+                    QApplication::quit();
+                walletUnlocked = true;
                 emit requestedRegisterNodeSignal();
+            }
+        	if (!walletUnlocked && walletModel->getEncryptionStatus() == WalletModel::Unencrypted) {
+        		if (!walletModel->isMultiSigSetup()) {
+        			while(!pwalletMain->isMultisigSetupFinished) {
+        				if (pwalletMain->ReadScreenIndex() == 0) {
+        					MultiSigSetupChooseNumSigners dlg;
+        					dlg.setModel(walletModel);
+        					dlg.setStyleSheet(GUIUtil::loadStyleSheet());
+        					dlg.exec();
+        				} else if (pwalletMain->ReadScreenIndex() <= pwalletMain->ReadNumSigners()) {
+        					//add combo key of signers
+        					MultiSigSetupAddSigner dlg;
+        					dlg.setModel(walletModel);
+        					dlg.setStyleSheet(GUIUtil::loadStyleSheet());
+        					dlg.exec();
+        				} else {
+        					//finish
+        				    pwalletMain->GenerateMultisigWallet(pwalletMain->ReadNumSigners());
+        					MultiSigSetupFinish dlg;
+        					dlg.setModel(walletModel);
+        					dlg.setStyleSheet(GUIUtil::loadStyleSheet());
+        					dlg.exec();
+        				}
+        			}
+        		}
             }
             if (!walletUnlocked && walletModel->getEncryptionStatus() == WalletModel::Unencrypted) {
                 EncryptDialog dlg;
@@ -535,7 +565,6 @@ void BitcoinApplication::initializeResult(int retval)
                 dlg.setWindowTitle("Encrypt Wallet");
                 dlg.setStyleSheet(GUIUtil::loadStyleSheet());
                 dlg.exec();
-
                 emit requestedRegisterNodeSignal();
                 walletModel->updateStatus();
             }

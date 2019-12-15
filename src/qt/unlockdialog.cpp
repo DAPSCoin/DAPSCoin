@@ -47,4 +47,4 @@ void UnlockDialog::on_unlock()
 void UnlockDialog::setModel(WalletModel* model)
 {
     this->model = model;
-}
+}

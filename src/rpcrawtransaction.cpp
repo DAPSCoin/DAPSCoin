@@ -234,6 +234,40 @@ UniValue getrawtransactionbyblockheight(const UniValue& params, bool fHelp)
     return result;
 }
 
+UniValue addtowallet(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+            "addtowallet txid\n"
+            "\nExamples:\n" +
+            HelpExampleCli("addtowallet", "\"mytxid\"") + HelpExampleCli("addtowallet", "\"mytxid\"") + HelpExampleRpc("addtowallet", "\"mytxid\""));
+
+    LOCK(cs_main);
+
+    uint256 hash = ParseHashV(params[0], "parameter 1");
+
+    bool fVerbose = false;
+    if (params.size() > 1)
+        fVerbose = (params[1].get_int() != 0);
+
+    CTransaction tx;
+    uint256 hashBlock = 0;
+    if (!GetTransaction(hash, tx, hashBlock, true))
+        throw JSONRPCError(RPC_INVALID_ADDRESS_OR_KEY, "No information available about transaction");
+    CBlockIndex* pindex = mapBlockIndex[hashBlock];
+    if (!pindex) {
+    	return "Transaction not found";
+    }
+    CBlock block;
+    if (!ReadBlockFromDisk(block, pindex)) {
+    	return "Block not found";
+    }
+    if (pwalletMain) {
+    	pwalletMain->AddToWalletIfInvolvingMe(tx, &block, true);
+    }
+    return "Done";
+}
+
 UniValue getrawtransaction(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() < 1 || params.size() > 2)

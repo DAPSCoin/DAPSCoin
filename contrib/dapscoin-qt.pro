@@ -200,6 +200,7 @@ HEADERS += src/activemasternode.h \
            src/qt/recentrequeststablemodel.h \
            src/qt/rpcconsole.h \
            src/qt/sendcoinsdialog.h \
+           src/qt/cosigntransaction.h \
            src/qt/sendcoinsentry.h \
            src/qt/signverifymessagedialog.h \
            src/qt/splashscreen.h \
@@ -356,11 +357,16 @@ FORMS += src/qt/forms/addressbookpage.ui \
          src/qt/forms/receiverequestdialog.ui \
          src/qt/forms/rpcconsole.ui \
          src/qt/forms/sendcoinsdialog.ui \
+         src/qt/forms/cosigntransaction.ui \
          src/qt/forms/sendcoinsentry.ui \
          src/qt/forms/signverifymessagedialog.ui \
          src/qt/forms/togglebutton.ui \
          src/qt/forms/txentry.ui \
          src/qt/forms/transactiondescdialog.ui \
+         src/qt/forms/multisigsetupchoosenumsigners.ui \
+         src/qt/forms/multisigsetupaddsigner.ui \
+         src/qt/forms/multisigsetupfinish.ui \
+         src/qt/forms/keyimagesync.ui
 SOURCES += src/activemasternode.cpp \
            src/addrman.cpp \
            src/alert.cpp \
@@ -501,6 +507,7 @@ SOURCES += src/activemasternode.cpp \
            src/qt/recentrequeststablemodel.cpp \
            src/qt/rpcconsole.cpp \
            src/qt/sendcoinsdialog.cpp \
+           src/qt/cosigntransaction.cpp \
            src/qt/sendcoinsentry.cpp \
            src/qt/signverifymessagedialog.cpp \
            src/qt/splashscreen.cpp \

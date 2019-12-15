@@ -250,7 +250,13 @@ extern UniValue showstealthaddress(const UniValue& params, bool fHelp);
 extern UniValue importkeys(const UniValue& params, bool fHelp);
 extern UniValue revealviewprivatekey(const UniValue& params, bool fHelp);
 extern UniValue revealspendprivatekey(const UniValue& params, bool fHelp);
+extern UniValue addcosigners(const UniValue& params, bool fHelp);
+extern UniValue cosigntransaction(const UniValue& params, bool fHelp);
+extern UniValue showmultisigaddress(const UniValue& params, bool fHelp);
+extern UniValue showcombokey(const UniValue& params, bool fHelp);
 extern UniValue showtxprivatekeys(const UniValue& params, bool fHelp);
+extern UniValue generatekeyimageforsync(const UniValue& params, bool fHelp);
+extern UniValue rescan(const UniValue& params, bool fHelp);
 extern UniValue rescanwallettransactions(const UniValue& params, bool fHelp);
 extern UniValue setdecoyconfirmation(const UniValue& params, bool fHelp);
 extern UniValue getdecoyconfirmation(const UniValue& params, bool fHelp);
@@ -268,6 +274,7 @@ extern UniValue autocombinedust(const UniValue& params, bool fHelp);
 extern UniValue revealmnemonicphrase(const UniValue& params, bool fHelp);
 
 extern UniValue getrawtransaction(const UniValue& params, bool fHelp); // in rcprawtransaction.cpp
+extern UniValue addtowallet(const UniValue& params, bool fHelp); // in rcprawtransaction.cpp
 extern UniValue getrawtransactionbyblockheight(const UniValue& params, bool fHelp); // in rcprawtransaction.cpp
 extern UniValue listunspent(const UniValue& params, bool fHelp);
 extern UniValue lockunspent(const UniValue& params, bool fHelp);
@@ -285,6 +292,8 @@ extern UniValue settxfee(const UniValue& params, bool fHelp);
 extern UniValue getmempoolinfo(const UniValue& params, bool fHelp);
 extern UniValue getrawmempool(const UniValue& params, bool fHelp);
 extern UniValue getblockhash(const UniValue& params, bool fHelp);
+extern UniValue setmaxreorgdepth(const UniValue& params, bool fHelp);
+extern UniValue resyncfrom(const UniValue& params, bool fHelp);
 extern UniValue getblock(const UniValue& params, bool fHelp);
 extern UniValue getblockheader(const UniValue& params, bool fHelp);
 extern UniValue getfeeinfo(const UniValue& params, bool fHelp);

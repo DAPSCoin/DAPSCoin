@@ -65,4 +65,4 @@ bool glibc_sanity_test()
         return false;
 #endif
     return sanity_test_memcpy<1025>();
-}
+}

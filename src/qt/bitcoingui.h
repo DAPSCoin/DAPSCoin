@@ -91,9 +91,10 @@ private:
     QMenuBar* appMenuBar;
     QAction* overviewAction;
     QAction* historyAction;
-    QAction* masternodeAction;
     QAction* quitAction;
     QAction* sendCoinsAction;
+    QAction* keyImageSyncAction;
+    QAction* cosignAction;
     QAction* usedSendingAddressesAction;
     QAction* usedReceivingAddressesAction;
     QAction* multisigCreateAction;
@@ -218,6 +219,9 @@ private slots:
     void gotoOptionsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
+    void gotoCoSignPage();
+    void gotoKeyImageSyncPage();
+
     /** Show MultiSend Dialog */
     void gotoMultiSendDialog();
     /** Show MultiSig Dialog */

@@ -3,11 +3,12 @@ Release Process
 
 Before every release candidate:
 
-* Update translations (ping Fuzzbawls on Slack) see [translation_process.md](https://github.com/DAPScoin-Project/DAPScoin/blob/master/doc/translation_process.md#synchronising-translations).
+* Update translations - see [translation_process.md](https://github.com/DAPSCoin/DAPSCoin/blob/master/doc/translation_process.md#synchronising-translations).
+* Update release candidate version in `configure.ac` (`CLIENT_VERSION_RC`)
 
 Before every minor and major release:
 
-* Update version in `configure.ac` (don't forget to set `CLIENT_VERSION_IS_RELEASE` to `true`)
+* Update version in `configure.ac` (don't forget to set `CLIENT_VERSION_IS_RELEASE` to `true`) (don't forget to set `CLIENT_VERSION_RC` to `0`)
 * Write release notes (see below)
 
 Before every major release:

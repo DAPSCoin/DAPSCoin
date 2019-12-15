@@ -97,4 +97,4 @@ BOOST_AUTO_TEST_CASE(mruset_window)
 }
 
 BOOST_AUTO_TEST_SUITE_END()
-#endif
+#endif

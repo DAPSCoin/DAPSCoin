@@ -120,7 +120,7 @@ protected:
     int nDefaultPort;
     int nExtCoinType;
     uint256 bnProofOfWorkLimit;
-    int nMaxReorganizationDepth;
+    mutable int nMaxReorganizationDepth;
     int nSubsidyHalvingInterval;
     int nEnforceBlockUpgradeMajority;
     int nRejectBlockOutdatedMajority;
@@ -161,6 +161,10 @@ protected:
     //For PoA blocks
     int nPoABlockTime;
     int nMinNumPoSBlocks;
+public:
+    void ChangeMaxReorg(int num) const {
+        nMaxReorganizationDepth = num;
+    }
 };
 
 /**

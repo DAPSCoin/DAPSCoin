@@ -74,6 +74,9 @@ bool fVerifyingBlocks = false;
 unsigned int nCoinCacheSize = 5000;
 bool fAlerts = DEFAULT_ALERTS;
 
+/* If the tip is older than this (in seconds), the node is considered to be in initial block download. */
+int64_t nMaxTipAge = DEFAULT_MAX_TIP_AGE;
+
 unsigned int nStakeMinAge = 60 * 60;
 int64_t nReserveBalance = 0;
 
@@ -388,10 +391,9 @@ secp256k1_scratch_space2* GetScratch()
     return scratch;
 }
 
-secp256k1_bulletproof_generators* GetGenerator()
-{
-    static secp256k1_bulletproof_generators* generator;
-    if (!generator) generator = secp256k1_bulletproof_generators_create(GetContext(), &secp256k1_generator_const_g, 64 * 1024);
+secp256k1_bulletproof_generators* GetGenerator() {
+    static secp256k1_bulletproof_generators *generator;
+    if (!generator) generator = secp256k1_bulletproof_generators_create(GetContext(), &secp256k1_generator_const_g, 64*1024);
     return generator;
 }
 
@@ -593,7 +595,6 @@ bool VerifyRingSignatureWithTxFee(const CTransaction& tx, CBlockIndex* pindex)
             }
 
             memcpy(LIJ[i][j], P, 33);
-
             //compute RIJ
             unsigned char sh[33];
             CPubKey pkij;
@@ -642,7 +643,6 @@ bool VerifyRingSignatureWithTxFee(const CTransaction& tx, CBlockIndex* pindex)
         uint256 temppi1 = Hash(tempForHash, tempForHash + 2 * (tx.vin.size() + 1) * 33 + 32);
         memcpy(C, temppi1.begin(), 32);
     }
-    //LogPrintf("Verifying\n");
     return HexStr(tx.c.begin(), tx.c.end()) == HexStr(C, C + 32);
 }
 
@@ -756,6 +756,12 @@ uint256 GetTxSignatureHash(const CTransaction& tx)
 {
     CTransactionSignature cts(tx);
     return cts.GetHash();
+}
+
+uint256 GetTxSignatureHash(const CPartialTransaction& tx)
+{
+	CTransactionSignature cts(tx.ToTransaction());
+	return cts.GetHash();
 }
 
 uint256 GetTxInSignatureHash(const CTxIn& txin)
@@ -1451,57 +1457,6 @@ int GetIXConfirmations(uint256 nTXHash)
     return 0;
 }
 
-// ppcoin: total coin age spent in transaction, in the unit of coin-days.
-// Only those coins meeting minimum age requirement counts. As those
-// transactions not in main chain are not currently indexed so we
-// might not find out about their coin age. Older transactions are
-// guaranteed to be in main chain by sync-checkpoint. This rule is
-// introduced to help nodes establish a consistent view of the coin
-// age (trust score) of competing branches.
-bool GetCoinAge(const CTransaction& tx, const unsigned int nTxTime, uint64_t& nCoinAge)
-{
-    uint256 bnCentSecond = 0; // coin age in the unit of cent-seconds
-    nCoinAge = 0;
-
-    CBlockIndex* pindex = NULL;
-    for (const CTxIn& txin : tx.vin) {
-        // First try finding the previous transaction in database
-        CTransaction txPrev;
-        uint256 hashBlockPrev;
-        if (!GetTransaction(txin.prevout.hash, txPrev, hashBlockPrev)) {
-            LogPrintf("GetCoinAge: failed to find vin transaction \n");
-            continue; // previous transaction not in main chain
-        }
-
-        BlockMap::iterator it = mapBlockIndex.find(hashBlockPrev);
-        if (it != mapBlockIndex.end())
-            pindex = it->second;
-        else {
-            LogPrintf("GetCoinAge() failed to find block index \n");
-            continue;
-        }
-
-        // Read block header
-        CBlockHeader prevblock = pindex->GetBlockHeader();
-
-        if (prevblock.nTime + nStakeMinAge > nTxTime)
-            continue; // only count coins meeting min age requirement
-
-        if (nTxTime < prevblock.nTime) {
-            LogPrintf("GetCoinAge: Timestamp Violation: txtime less than txPrev.nTime");
-            return false; // Transaction timestamp violation
-        }
-
-        int64_t nValueIn = txPrev.vout[txin.prevout.n].nValue;
-        bnCentSecond += uint256(nValueIn) * (nTxTime - prevblock.nTime);
-    }
-
-    uint256 bnCoinDay = bnCentSecond / COIN / (24 * 60 * 60);
-    LogPrintf("coin age bnCoinDay=%s\n", bnCoinDay.ToString().c_str());
-    nCoinAge = bnCoinDay.GetCompact();
-    return true;
-}
-
 bool IsSerialInBlockchain(const CBigNum& bnSerial, int& nHeightTx)
 {
     uint256 txHash = 0;
@@ -1574,8 +1529,82 @@ bool VerifyShnorrKeyImageTx(const CTransaction& tx)
     return VerifyShnorrKeyImageTxIn(tx.vin[0], cts);
 }
 
-bool CheckTransaction(const CTransaction& tx, bool fzcActive, bool fRejectBadUTXO, CValidationState& state)
-{
+bool VerifyStakingAmount(const CBlock& block) {
+	if (!block.IsProofOfStake()) return true;
+
+	const CTransaction& tx = block.vtx[1];
+	if (!tx.IsCoinStake()) return true;
+	if (tx.vout[1].nValue + tx.vout[2].nValue > 0) return true;
+	secp256k1_pedersen_commitment commitment1, commitment2;
+	if (!secp256k1_pedersen_commitment_parse(GetContext(), &commitment1, &tx.vout[1].commitment[0])) {
+		LogPrintf("Failed to parse commitment");
+		return false;
+	}
+
+	if (!secp256k1_pedersen_commitment_parse(GetContext(), &commitment2, &tx.vout[2].commitment[0])) {
+		LogPrintf("Failed to parse commitment");
+		return false;
+	}
+	CAmount totalTxFee = 0;
+	for (size_t i = 0; i < block.vtx.size(); i++) {
+		totalTxFee += block.vtx[i].nTxFee;
+	}
+
+	CAmount posReward = PoSBlockReward();
+	CAmount stakingReward = posReward - tx.vout[3].nValue;
+
+	//find value in
+	uint256 hashBlock;
+	CTransaction txPrev;
+	if (!GetTransaction(tx.vin[0].prevout.hash, txPrev, hashBlock, true)) return false;
+	CAmount nValueIn;// = txPrev.vout[prevout.n].nValue;
+	uint256 val = txPrev.vout[tx.vin[0].prevout.n].maskValue.amount;
+	uint256 mask = txPrev.vout[tx.vin[0].prevout.n].maskValue.mask;
+	CKey decodedMask;
+	CPubKey sharedSec;
+	sharedSec.Set(tx.vin[0].encryptionKey.begin(), tx.vin[0].encryptionKey.begin() + 33);
+	ECDHInfo::Decode(mask.begin(), val.begin(), sharedSec, decodedMask, nValueIn);
+
+	CAmount totalStaking = nValueIn + totalTxFee + stakingReward;
+	std::vector<unsigned char> stakingCommitment;
+	unsigned char zeroBlind[32];
+	CWallet::CreateCommitmentWithZeroBlind(totalStaking, zeroBlind, stakingCommitment);
+
+	const secp256k1_pedersen_commitment *twoElements[2];
+	twoElements[0] = &commitment1;
+	twoElements[1] = &commitment2;
+
+	secp256k1_pedersen_commitment sum;
+	if (!secp256k1_pedersen_commitment_sum_pos(GetContext(), twoElements, 2, &sum))
+		throw runtime_error("failed to compute secp256k1_pedersen_commitment_sum_pos");
+
+	//verify sum is equal to commitment to zero of vout[1] and vout[2]
+	//serialize sum
+	unsigned char out[33];
+	secp256k1_pedersen_commitment_serialize(GetContext(), out, &sum);
+	std::vector<unsigned char> outVec;
+	std::copy(out, out + 33, std::back_inserter(outVec));
+
+	if (outVec != stakingCommitment) return false;
+
+	return VerifyStakingBulletproof(tx);
+}
+
+bool VerifyStakingBulletproof(const CTransaction& tx) {
+	size_t len = tx.bulletproofs.size();
+
+	if (len == 0) return false;
+	const size_t MAX_VOUT = 5;
+	secp256k1_pedersen_commitment commitments[MAX_VOUT];
+	size_t i = 0;
+	for (i = 0; i < 2; i++) {
+		if (!secp256k1_pedersen_commitment_parse(GetContext(), &commitments[i], &(tx.vout[i + 1].commitment[0])))
+			throw runtime_error("Failed to parse pedersen commitment");
+	}
+	return secp256k1_bulletproof_rangeproof_verify(GetContext(), GetScratch(), GetGenerator(), &(tx.bulletproofs[0]), len, NULL, commitments, 2, 64, &secp256k1_generator_const_h, NULL, 0);
+}
+
+bool CheckTransaction(const CTransaction &tx, bool fzcActive, bool fRejectBadUTXO, CValidationState &state) {
     // Basic checks that don't depend on any context
     if (tx.vin.empty())
         return state.DoS(10, error("CheckTransaction() : vin empty"),
@@ -1684,6 +1713,7 @@ bool CheckHaveInputs(const CCoinsViewCache& view, const CTransaction& tx)
                 CTransaction prev;
                 uint256 bh;
                 if (!GetTransaction(alldecoys[j].hash, prev, bh, true)) {
+                    LogPrintf("%s: Transaction %s not found\n", __func__, alldecoys[j].hash.GetHex());
                     return false;
                 }
 
@@ -1700,9 +1730,15 @@ bool CheckHaveInputs(const CCoinsViewCache& view, const CTransaction& tx)
 					}
 				}*/
 
-                if (mapBlockIndex.count(bh) < 1) return false;
+                if (mapBlockIndex.count(bh) < 1) {
+                    LogPrintf("%s: Block %s for transaction %s not found\n", __func__, bh.GetHex(), alldecoys[j].hash.GetHex());
+                    return false;
+                }
                 if (prev.IsCoinStake() || prev.IsCoinAudit() || prev.IsCoinBase()) {
-                    if (nSpendHeight - mapBlockIndex[bh]->nHeight < Params().COINBASE_MATURITY()) return false;
+                    if (nSpendHeight - mapBlockIndex[bh]->nHeight < Params().COINBASE_MATURITY()) {
+                        LogPrintf("%s: Transaction %s is immature\n", __func__, alldecoys[j].hash.GetHex());
+                        return false;
+                    }
                 }
 
                 CBlockIndex* tip = chainActive.Tip();
@@ -2426,8 +2462,7 @@ bool IsInitialBlockDownload()
     if (lockIBDState)
         return false;
     bool state = (chainActive.Height() < pindexBestHeader->nHeight - 24 * 6 ||
-                  pindexBestHeader->GetBlockTime() <
-                      GetTime() - 6 * 60 * 60); // ~144 blocks behind -> 2 x fork detection time
+                  pindexBestHeader->GetBlockTime() < GetTime() - nMaxTipAge);
     if (!state)
         lockIBDState = true;
     return state;
@@ -3069,16 +3104,18 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 REJECT_INVALID, "bad-blk-sigops");
 
         if (!block.IsPoABlockByVersion() && !tx.IsCoinBase()) {
-            if (!tx.IsCoinStake()) {
-                if (!tx.IsCoinAudit()) {
-                    if (!VerifyRingSignatureWithTxFee(tx, pindex))
-                        return state.DoS(100, error("ConnectBlock() : Ring Signature check for transaction %s failed", tx.GetHash().ToString()),
-                            REJECT_INVALID, "bad-ring-signature");
-                    if (!VerifyBulletProofAggregate(tx))
-                        return state.DoS(100, error("ConnectBlock() : Bulletproof check for transaction %s failed", tx.GetHash().ToString()),
-                            REJECT_INVALID, "bad-bulletproof");
-                }
-            }
+        	if (!tx.IsCoinStake()) {
+        		if (!tx.IsCoinAudit()) {
+        			if (!IsInitialBlockDownload() && !VerifyRingSignatureWithTxFee(tx, pindex))
+        				return state.DoS(100, error("ConnectBlock() : Ring Signature check for transaction %s failed",
+        						tx.GetHash().ToString()),
+        						REJECT_INVALID, "bad-ring-signature");
+        			if (!IsInitialBlockDownload() && !VerifyBulletProofAggregate(tx))
+        				return state.DoS(100, error("ConnectBlock() : Bulletproof check for transaction %s failed",
+        						tx.GetHash().ToString()),
+        						REJECT_INVALID, "bad-bulletproof");
+        		}
+        	}
 
             // Check that the inputs are not marked as invalid/fraudulent
             uint256 bh = pindex->GetBlockHash();
@@ -3092,7 +3129,7 @@ bool ConnectBlock(const CBlock& block, CValidationState& state, CBlockIndex* pin
                 }
                 pblocktree->WriteKeyImage(keyImage.GetHex(), bh);
                 if (pwalletMain != NULL && !pwalletMain->IsLocked()) {
-                    if (pwalletMain->GetDebit(in, ISMINE_ALL)) {
+                    if (pwalletMain->GetDebit(tx, in, ISMINE_ALL)) {
                         pwalletMain->keyImagesSpends[keyImage.GetHex()] = true;
                     }
                     pwalletMain->pendingKeyImages.remove(keyImage.GetHex());
@@ -4608,8 +4645,11 @@ bool ProcessNewBlock(CValidationState& state, CNode* pfrom, CBlock* pblock, CDis
     // ppcoin: check proof-of-stake
     // Limited duplicity on stake: prevents block flood attack
     // Duplicate stake allowed only when there is orphan child block
-    if (pblock->IsProofOfStake() && setStakeSeen.count(pblock->GetProofOfStake()) /* && !mapOrphanBlocksByPrev.count(hash)*/)
-        return error("ProcessNewBlock() : duplicate proof-of-stake (%s, %d) for block %s", pblock->GetProofOfStake().first.ToString().c_str(), pblock->GetProofOfStake().second, pblock->GetHash().ToString().c_str());
+    // Key image will be checked later for duplicate stake
+    /*if (pblock->IsProofOfStake() && setStakeSeen.count(pblock->GetProofOfStake())) {
+        if (IsKeyImageSpend1(pblock->vtx[1].vin[0].keyImage.GetHex(), pblock->hashPrevBlock))
+            return error("ProcessNewBlock() : duplicate proof-of-stake (%s, %d) for block %s", pblock->GetProofOfStake().first.ToString().c_str(), pblock->GetProofOfStake().second, pblock->GetHash().ToString().c_str());
+    }*/
     // NovaCoin: check proof-of-stake block signature
     if (!pblock->IsPoABlockByVersion() && !pblock->CheckBlockSignature())
         return error("ProcessNewBlock() : bad proof-of-stake block signature");
@@ -4652,7 +4692,7 @@ bool ProcessNewBlock(CValidationState& state, CNode* pfrom, CBlock* pblock, CDis
             {
                 LOCK(pwalletMain->cs_wallet);
                 if (pblock->IsProofOfStake()) {
-                    if (pwalletMain->IsMine(pblock->vtx[1].vin[0])) {
+                    if (pwalletMain->IsMine(pblock->vtx[1], pblock->vtx[1].vin[0])) {
                         pwalletMain->mapWallet.erase(pblock->vtx[1].GetHash());
                     }
                 }
@@ -4903,6 +4943,9 @@ bool static LoadBlockIndexDB(string& strError)
     }
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
     for (const PAIRTYPE(int, CBlockIndex*) & item : vSortedByHeight) {
+        // Stop if shutdown was requested
+        if (ShutdownRequested()) return false;
+
         CBlockIndex* pindex = item.second;
         pindex->nChainWork = (pindex->pprev ? pindex->pprev->nChainWork : 0) + GetBlockProof(*pindex);
         if (pindex->nStatus & BLOCK_HAVE_DATA) {
@@ -6577,7 +6620,7 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
             // There is no excuse for sending a too-large filter
             LOCK(cs_main);
             Misbehaving(pfrom->GetId(), 100);
-        } else {
+       }  else {
             LOCK(pfrom->cs_filter);
             delete pfrom->pfilter;
             pfrom->pfilter = new CBloomFilter(filter);

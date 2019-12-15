@@ -10,6 +10,7 @@
 #include "random.h"
 #include "util.h"
 #include "utilstrencodings.h"
+#include "streams.h"
 
 #include <assert.h>
 
@@ -17,6 +18,20 @@
 
 using namespace std;
 using namespace boost::assign;
+
+std::string EncodeHexTx(const CMutableTransaction& tx)
+{
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << tx;
+    return HexStr(ssTx.begin(), ssTx.end());
+}
+
+std::string EncodeHexBlock(const CBlock& b)
+{
+    CDataStream ssTx(SER_NETWORK, PROTOCOL_VERSION);
+    ssTx << b;
+    return HexStr(ssTx.begin(), ssTx.end());
+}
 
 struct SeedSpec6 {
     uint8_t addr[16];
@@ -86,6 +101,8 @@ static Checkpoints::MapCheckpoints mapCheckpoints =
     (146600, uint256("95c6a698083ddc27a8fb342086b055d3823c040f32f5728c9ded7d8fe675bd8b"))
     (146700, uint256("ba7a089a31940f6c8569c07ef25915c50d28182dc78d6af2590a2dc65476c9b2"))
     (146800, uint256("85d7b80f682f4d480e85816786f821576c7f1df182276358ad3917742fa11bd7"))
+    (146898, uint256("a0e3853d98c6d60febd57ad2c879e590bda09de271527b396efc5be22ab5ce9e"))
+    (146899, uint256("22c90bbb2ae11c3bd5fd6c716d543f8f207e6379e14d26fc04ba7220681dd13b"))
     (146900, uint256("a879e6b5f62ed437d2108366a8152130c21df38322556f06dd71ad08854210b8"))
     (147000, uint256("e60eb87bdbeaee7582826418c8c4504637e51684a3e631b5683390497a4e2535"))
     (147200, uint256("55fcf4abbd7a1b3aa91460378c3b833f9d1569780b0a1e7e6ee2d1b3a4256b24"))
@@ -132,7 +149,7 @@ public:
         pchMessageStart[2] = 0x79;
         pchMessageStart[3] = 0x84;
         vAlertPubKey = ParseHex("049def8e22e7f78b624dc62007c66c06066d032310b3507642306b143326a8295e03576ffab7469c552e1a68655598d78d501eb10cc27408bfd7876dbadb08b0ee");
-        nDefaultPort = 53572;
+        nDefaultPort = 53572; //default port for multisig
         bnProofOfWorkLimit = ~uint256(0) >> 1; // DAPScoin starting difficulty is 1 / 2^12
         nSubsidyHalvingInterval = 210000;
         nMaxReorganizationDepth = 100;

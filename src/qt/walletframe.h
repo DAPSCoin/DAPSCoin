@@ -51,10 +51,13 @@ public slots:
     void gotoMasternodePage();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
+    /** Switch to cosign page */
+    void gotoCoSignPage();
     /** Switch to options page */
     void gotoOptionsPage();
     /** Switch to send coins page */
     void gotoSendCoinsPage(QString addr = "");
+    void gotoKeyImageSyncPage();
     /** Switch to explorer page */
     void gotoBlockExplorerPage();
     /** Show MultiSend Dialog **/

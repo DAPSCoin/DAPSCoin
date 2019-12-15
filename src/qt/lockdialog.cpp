@@ -30,4 +30,4 @@ void LockDialog::on_lock()
 void LockDialog::setModel(WalletModel* model)
 {
     this->model = model;
-}
+}
