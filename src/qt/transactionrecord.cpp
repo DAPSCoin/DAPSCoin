@@ -11,7 +11,7 @@
 #include "obfuscation.h"
 #include "swifttx.h"
 #include "timedata.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 
 #include <stdint.h>
 

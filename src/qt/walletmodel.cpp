@@ -17,14 +17,14 @@
 
 
 #include "base58.h"
-#include "db.h"
+#include "wallet/db.h"
 #include "keystore.h"
 #include "main.h"
 #include "miner.h"
 #include "sync.h"
 #include "ui_interface.h"
-#include "wallet.h"
-#include "walletdb.h" // for BackupWallet
+#include "wallet/wallet.h"
+#include "wallet/walletdb.h" // for BackupWallet
 #include <stdint.h>
 #include <regex>
 #include <QDebug>

@@ -4,7 +4,7 @@
 #include "allocators.h"
 #include "guiconstants.h"
 #include "walletmodel.h"
-#include "walletdb.h"
+#include "wallet/walletdb.h"
 
 #include <QDateTime>
 #include <QMessageBox>

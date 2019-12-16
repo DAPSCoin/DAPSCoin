@@ -11,7 +11,7 @@
 #include "walletmodel.h"
 
 #include "base58.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 
 #include <QDebug>
 #include <QFont>

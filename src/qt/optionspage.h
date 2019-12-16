@@ -18,7 +18,7 @@
 #include <QSettings>
 #include <QSizeGrip>
 #include <togglebutton.h>
-#include "wallet.h"
+#include "wallet/wallet.h"
 
 class OptionsModel;
 class WalletModel;

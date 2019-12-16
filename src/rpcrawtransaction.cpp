@@ -19,9 +19,9 @@
 #include "script/standard.h"
 #include "uint256.h"
 #include "utilmoneystr.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 #ifdef ENABLE_WALLET
-#include "wallet.h"
+#include "wallet/wallet.h"
 #endif
 
 #include <stdint.h>

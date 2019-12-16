@@ -11,7 +11,7 @@
 #include "allocators.h" /* for SecureString */
 #include "guiutil.h"
 #include "swifttx.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 #include "init.h"
 
 #include <map>

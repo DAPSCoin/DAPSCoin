@@ -14,7 +14,7 @@
 #include "sync.h"
 #include "util.h"
 #include "utiltime.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 
 #include <boost/filesystem.hpp>
 #include <boost/scoped_ptr.hpp>

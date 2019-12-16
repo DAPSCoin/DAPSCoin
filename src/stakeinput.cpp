@@ -7,7 +7,7 @@
 #include "primitives/deterministicmint.h"
 #include "main.h"
 #include "stakeinput.h"
-#include "wallet.h"
+#include "wallet/wallet.h"
 
 //!DAPS Stake
 bool CDapsStake::SetInput(CTransaction txPrev, unsigned int n)
