@@ -7,7 +7,7 @@
 #include "net.h"
 #include "masternodeconfig.h"
 #include "util.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 #include <base58.h>
 
 CMasternodeConfig masternodeConfig;

@@ -7,7 +7,7 @@
 #include "main.h"
 #include "random.h"
 #include "txdb.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 #include "util.h"
 #ifdef ENABLE_WALLET
 #include "wallet/db.h"

@@ -18,7 +18,7 @@
 #include "main.h"
 #include "primitives/block.h"
 #include "primitives/transaction.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 #include "util.h"
 #include "validationinterface.h"
 #include "wallet_ismine.h"

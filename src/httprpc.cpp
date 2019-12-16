@@ -15,7 +15,7 @@
 #include "sync.h"
 #include "util.h"
 #include "utilstrencodings.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 
 #include <boost/algorithm/string.hpp> // boost::trim
 

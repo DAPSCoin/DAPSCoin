@@ -13,7 +13,7 @@
 
 #include "base58.h"
 #include "chainparams.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 #include "util.h"
 #include "wallet/wallet.h"
 

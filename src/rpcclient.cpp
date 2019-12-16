@@ -9,7 +9,7 @@
 #include "rpcclient.h"
 
 #include "rpcprotocol.h"
-#include "ui_interface.h"
+#include "guiinterface.h"
 #include "util.h"
 
 #include <set>
