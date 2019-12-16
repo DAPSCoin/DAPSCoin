@@ -8,7 +8,7 @@
 #include "bip38.h"
 #include "init.h"
 #include "main.h"
-#include "rpcserver.h"
+#include "rpc/server.h"
 #include "script/script.h"
 #include "script/standard.h"
 #include "sync.h"

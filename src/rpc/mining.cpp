@@ -15,7 +15,7 @@
 #include "miner.h"
 #include "net.h"
 #include "pow.h"
-#include "rpcserver.h"
+#include "rpc/server.h"
 #include "util.h"
 #ifdef ENABLE_WALLET
 #include "wallet/db.h"

@@ -32,7 +32,7 @@
 
 #include "init.h"
 #include "main.h"
-#include "rpcserver.h"
+#include "rpc/server.h"
 #include "guiinterface.h"
 #include "util.h"
 
