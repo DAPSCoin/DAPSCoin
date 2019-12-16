@@ -1,5 +1,4 @@
 #include "multisigsetupchoosenumsigners.h"
-#include "ui_multisigsetupchoosenumsigners.h"
 #include "guiutil.h"
 #include "guiconstants.h"
 #include "bitcoingui.h"
