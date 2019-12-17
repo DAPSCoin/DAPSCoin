@@ -835,9 +835,9 @@ void static ThreadBitcoinMiner(void* parg)
         }
         boost::this_thread::interruption_point();
     } catch (std::exception& e) {
-        LogPrintf("ThreadBitcoinMiner() exception");
+        LogPrintf("ThreadBitcoinMiner() exception\n");
     } catch (...) {
-        LogPrintf("ThreadBitcoinMiner() exception");
+        LogPrintf("ThreadBitcoinMiner() exception\n");
     }
 
     LogPrintf("ThreadBitcoinMiner exiting\n");
@@ -854,9 +854,9 @@ void static ThreadDapscoinMiner(void* parg)
     	}
         boost::this_thread::interruption_point();
     } catch (std::exception& e) {
-        LogPrintf("ThreadBitcoinMiner() exception");
+        LogPrintf("ThreadBitcoinMiner() exception\n");
     } catch (...) {
-        LogPrintf("ThreadBitcoinMiner() exception");
+        LogPrintf("ThreadBitcoinMiner() exception\n");
     }
 
     LogPrintf("ThreadBitcoinMiner exiting\n");
