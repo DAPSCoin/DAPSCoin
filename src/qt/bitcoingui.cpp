@@ -119,6 +119,7 @@ BitcoinGUI::BitcoinGUI(const NetworkStyle* networkStyle, QWidget* parent) : QMai
     GUIUtil::restoreWindowGeometry("nWindow", QSize(1147, 768), this);
 
     QString windowTitle = tr("DAPS Coin") + " ";
+    fLiteMode = GetBoolArg("-litemode", false);
 #ifdef ENABLE_WALLET
     /* if compiled with wallet support, -disablewallet can still disable the wallet */
     enableWallet = !GetBoolArg("-disablewallet", false);
@@ -129,6 +130,9 @@ BitcoinGUI::BitcoinGUI(const NetworkStyle* networkStyle, QWidget* parent) : QMai
         windowTitle += tr("Keychain Wallet");
     } else {
         windowTitle += tr("Node");
+    }
+    if (fLiteMode) {
+        windowTitle += tr(" - Lite Mode");
     }
     QString userWindowTitle = QString::fromStdString(GetArg("-windowtitle", ""));
     if (!userWindowTitle.isEmpty()) windowTitle += " - " + userWindowTitle;
@@ -329,7 +333,9 @@ void BitcoinGUI::createActions(const NetworkStyle* networkStyle)
 #else
         masternodeAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
 #endif
-        tabGroup->addAction(masternodeAction);
+        if (!fLiteMode) {
+            tabGroup->addAction(masternodeAction);
+        }
         connect(masternodeAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
         connect(masternodeAction, SIGNAL(triggered()), this, SLOT(gotoMasternodePage()));
 
@@ -603,8 +609,9 @@ void BitcoinGUI::createToolBars()
         toolbar->addAction(sendCoinsAction);
         toolbar->addAction(receiveCoinsAction);
         toolbar->addAction(historyAction);
-        toolbar->addAction(masternodeAction);
-
+        if (!fLiteMode) {
+            toolbar->addAction(masternodeAction);
+        }
         toolbar->setMovable(false); // remove unused icon in upper left corner
         overviewAction->setChecked(true);
         toolbar->setStyleSheet("QToolBar{spacing:25px;}");
@@ -788,7 +795,9 @@ void BitcoinGUI::createTrayIconMenu()
     trayIconMenu->addAction(sendCoinsAction);
     trayIconMenu->addAction(receiveCoinsAction);
     trayIconMenu->addAction(historyAction);
-    trayIconMenu->addAction(masternodeAction);
+    if (!fLiteMode) {
+        trayIconMenu->addAction(masternodeAction);
+    }
     trayIconMenu->addSeparator();
     trayIconMenu->addAction(optionsAction);
     trayIconMenu->addSeparator();

@@ -64,7 +64,8 @@ OptionsPage::OptionsPage(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
         ui->lineEditWithhold->setText(BitcoinUnits::format(0, nReserveBalance).toUtf8());
 
     bool stkStatus = pwalletMain->ReadStakingStatus();
-    if (stkStatus){
+    fLiteMode = GetBoolArg("-litemode", false);
+    if (stkStatus && !fLiteMode){
         if (chainActive.Height() < Params().LAST_POW_BLOCK()) {
             stkStatus = false;
             pwalletMain->walletStakingInProgress = false;
@@ -82,8 +83,33 @@ OptionsPage::OptionsPage(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
         }
     }
 
-    ui->toggleStaking->setState(nLastCoinStakeSearchInterval | stkStatus);
-    connect(ui->toggleStaking, SIGNAL(stateChanged(ToggleButton*)), this, SLOT(on_EnableStaking(ToggleButton*)));
+    if (!fLiteMode) {
+        //Staking related items and functions
+        ui->toggleStaking->setState(nLastCoinStakeSearchInterval | stkStatus);
+        connect(ui->toggleStaking, SIGNAL(stateChanged(ToggleButton*)), this, SLOT(on_EnableStaking(ToggleButton*)));
+        timerStakingToggleSync = new QTimer();
+        connect(timerStakingToggleSync, SIGNAL(timeout()), this, SLOT(setStakingToggle()));
+        timerStakingToggleSync->start(10000);
+        ui->labelStaking->show();
+        ui->toggleStaking->show();
+        ui->quantityLabel->show();
+        ui->lineEditWithhold->show();
+        ui->addNewFunds->show();
+        ui->pushButtonSave->show();
+        ui->pushButtonDisable->show();
+        ui->line_3->show();
+    } else {
+        //Staking related items and functions hidden/removed in litemode
+        ui->labelStaking->hide();
+        ui->toggleStaking->hide();
+        ui->quantityLabel->hide();
+        ui->lineEditWithhold->hide();
+        ui->addNewFunds->hide();
+        ui->pushButtonSave->hide();
+        ui->pushButtonDisable->hide();
+        ui->line_3->hide();
+    }
+
 
     connect(ui->pushButtonRecovery, SIGNAL(clicked()), this, SLOT(onShowMnemonic()));
 
@@ -107,10 +133,6 @@ OptionsPage::OptionsPage(QWidget* parent) : QDialog(parent, Qt::WindowSystemMenu
     ui->code_4->setVisible(false);
     ui->code_5->setVisible(false);
     ui->code_6->setVisible(false);
-
-    timerStakingToggleSync = new QTimer();
-    connect(timerStakingToggleSync, SIGNAL(timeout()), this, SLOT(setStakingToggle()));
-    timerStakingToggleSync->start(10000);
 
     if (!pwalletMain->IsMasternodeController()) {
         if (pwalletMain) {
