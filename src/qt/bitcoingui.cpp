@@ -623,8 +623,10 @@ void BitcoinGUI::createToolBars()
         bottomToolbar->setOrientation(Qt::Vertical);
         bottomToolbar->addAction(optionsAction);
         bottomToolbar->addSeparator();
-        bottomToolbar->addAction(stakingAction);
-        bottomToolbar->addWidget(stakingState);
+        if (!fLiteMode) {
+            bottomToolbar->addAction(stakingAction);
+            bottomToolbar->addWidget(stakingState);
+        }
         bottomToolbar->addAction(networkAction);
         bottomToolbar->addWidget(connectionCount);
         bottomToolbar->setStyleSheet("QToolBar{spacing:5px;}");
