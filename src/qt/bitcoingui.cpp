@@ -69,9 +69,9 @@
 #include <QUrlQuery>
 #endif
 
-#define BASE_WINDOW_WIDTH 1147
+#define BASE_WINDOW_WIDTH 800
 #define BASE_WINDOW_HEIGHT 768
-#define BASE_WINDOW_MIN_HEIGHT 720
+#define BASE_WINDOW_MIN_HEIGHT 600
 
 const QString BitcoinGUI::DEFAULT_WALLET = "~Default";
 
