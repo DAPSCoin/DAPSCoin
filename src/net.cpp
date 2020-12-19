@@ -86,6 +86,7 @@ uint64_t nLocalHostNonce = 0;
 static std::vector <ListenSocket> vhListenSocket;
 CAddrMan addrman;
 int nMaxConnections = DEFAULT_MAX_PEER_CONNECTIONS;
+bool isSeedNode = false;
 bool fAddressesInitialized = false;
 std::string strSubVersion;
 
@@ -350,6 +351,20 @@ CNode *FindNode(const CSubNet &subNet) {
     if (subNet.Match((CNetAddr) pnode->addr))
         return (pnode);
     return NULL;
+}
+
+void DisconnectOldNodes() {
+    LOCK(cs_vNodes);
+    if (!isSeedNode) return;
+    if (vNodes.size() <= (nMaxConnections*9)/10) return;
+    LogPrintf("Start prunning peers for new nodes to connect to this seednode\n");
+    size_t numDisconnects = vNodes.size()/2;
+    size_t startDisconnectIndex = 20;
+    for(size_t i = startDisconnectIndex; i < startDisconnectIndex + numDisconnects; i++) {
+        if (i < vNodes.size()) {
+            if (vNodes[i] != NULL) vNodes[i]->fDisconnect = true;
+        }
+    }
 }
 
 CNode *FindNode(const std::string &addrName) {

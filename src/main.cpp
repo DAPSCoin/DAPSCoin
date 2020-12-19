@@ -4627,6 +4627,14 @@ bool ProcessNewBlock(CValidationState& state, CNode* pfrom, CBlock* pblock, CDis
             mapBlockSource[pindex->GetBlockHash()] = pfrom->GetId();
         }
         CheckBlockIndex();
+        if (pindexBestForkTip == NULL) {
+                pindexBestForkTip = chainActive.Genesis();
+            }
+            int temp = pindexBestForkTip->nHeight%500;
+            pindexBestForkTip = chainActive[pindexBestForkTip->nHeight - temp];
+        if (pfrom) {
+            pfrom->PushMessage("getblocks", chainActive.GetLocator(pindexBestForkTip), pblock->GetHash());
+        }
         if (!ret) {
             if (pfrom) {
                 pfrom->PushMessage("getblocks", chainActive.GetLocator(pindexBestForkTip), pblock->GetHash());
@@ -6324,6 +6332,10 @@ bool static ProcessMessage(CNode* pfrom, string strCommand, CDataStream& vRecv, 
                 LogPrint("net", "%s : Already processed block %s, skipping ProcessNewBlock()\n", __func__,
                     block.GetHash().GetHex());
             }
+        }
+        //prune peers for seednodes so that other nodes could join the network
+        if (!IsInitialBlockDownload() && chainActive.Height() % 5 == 0) {
+            DisconnectOldNodes();
         }
     }
 
