@@ -5340,10 +5340,14 @@ bool CWallet::CreateSweepingTransaction(CAmount target, CAmount threshold, uint3
 
 void CWallet::AutoCombineDust()
 {
-    if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced()) return;
+    bool autoCombine = GetBoolArg("-autocombine", false));
+    if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced() || autoCombine) {
+        LogPrintf("%s: Skipped due to syncing or settings\n" __func__);
+        return;
+    }
     //if (IsInitialBlockDownload()) return;
     if (chainActive.Tip()->nTime < (GetAdjustedTime() - 300) || IsLocked()) {
-        LogPrintf("Time elapsed for autocombine transaction too short\n");
+        LogPrintf("%s: Time elapsed for autocombine transaction too short\n", __func__);
         return;
     }
 
@@ -5358,7 +5362,7 @@ void CWallet::AutoCombineDust()
             }
             uint32_t nTime = ReadAutoConsolidateSettingTime();
             nTime = (nTime == 0)? GetAdjustedTime() : nTime;
-            LogPrintf("Attempting to create a consolidation transaction for a larger UTXO for staking\n");
+            LogPrintf("%s: Attempting to create a consolidation transaction for a larger UTXO for staking\n" __func__);
             CreateSweepingTransaction(MINIMUM_STAKE_AMOUNT, max + COIN, nTime);
         }
         return;
