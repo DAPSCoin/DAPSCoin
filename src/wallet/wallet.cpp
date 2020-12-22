@@ -5340,9 +5340,10 @@ bool CWallet::CreateSweepingTransaction(CAmount target, CAmount threshold, uint3
 
 void CWallet::AutoCombineDust()
 {
-    bool autoCombine = GetBoolArg("-autocombine", false));
+    bool autoCombine = GetBoolArg("-autocombine", false);
+    bool autoConsolidate = GetBoolArg("-autoconsolidate", false);
     if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced() || autoCombine) {
-        LogPrintf("%s: Skipped due to syncing or settings\n" __func__);
+        LogPrintf("%s: Skipped due to syncing or settings\n", __func__);
         return;
     }
     //if (IsInitialBlockDownload()) return;
@@ -5351,7 +5352,7 @@ void CWallet::AutoCombineDust()
         return;
     }
 
-    if (stakingMode == StakingMode::STAKING_WITH_CONSOLIDATION) {
+    if (stakingMode == StakingMode::STAKING_WITH_CONSOLIDATION && autoConsolidate) {
         if (IsLocked()) return;
         if (fGenerateDapscoins && chainActive.Tip()->nHeight >= Params().LAST_POW_BLOCK()) {
             //sweeping to create larger UTXO for staking
@@ -5362,7 +5363,7 @@ void CWallet::AutoCombineDust()
             }
             uint32_t nTime = ReadAutoConsolidateSettingTime();
             nTime = (nTime == 0)? GetAdjustedTime() : nTime;
-            LogPrintf("%s: Attempting to create a consolidation transaction for a larger UTXO for staking\n" __func__);
+            LogPrintf("%s: Attempting to create a consolidation transaction for a larger UTXO for staking\n", __func__);
             CreateSweepingTransaction(MINIMUM_STAKE_AMOUNT, max + COIN, nTime);
         }
         return;
