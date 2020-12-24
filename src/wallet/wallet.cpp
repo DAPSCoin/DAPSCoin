@@ -5346,14 +5346,12 @@ void CWallet::AutoCombineDust()
         LogPrintf("%s: Skipped due to syncing or settings\n", __func__);
         return;
     }
-    //if (IsInitialBlockDownload()) return;
     if (chainActive.Tip()->nTime < (GetAdjustedTime() - 300) || IsLocked()) {
         LogPrintf("%s: Time elapsed for autocombine transaction too short\n", __func__);
         return;
     }
 
     if (stakingMode == StakingMode::STAKING_WITH_CONSOLIDATION && autoConsolidate) {
-        if (IsLocked()) return;
         if (fGenerateDapscoins && chainActive.Tip()->nHeight >= Params().LAST_POW_BLOCK()) {
             //sweeping to create larger UTXO for staking
             LOCK2(cs_main, cs_wallet);
