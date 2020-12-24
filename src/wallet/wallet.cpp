@@ -5349,7 +5349,7 @@ void CWallet::AutoCombineDust()
         LogPrintf("%s: Skipped due to settings or locked and/or syncing wallet\n", __func__);
         return;
     }
-    if (chainActive.Tip()->nTime < (GetAdjustedTime() - nDefaultMinerSleep)) {
+    if (chainActive.Tip()->nTime < (GetAdjustedTime() - nAutoCombineSleep)) {
         LogPrintf("%s: Time elapsed for autocombine transaction too short\n", __func__);
         return;
     }
