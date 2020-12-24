@@ -5344,6 +5344,7 @@ void CWallet::AutoCombineDust()
     bool autoConsolidate = GetBoolArg("-autoconsolidate", false);
     int64_t nAutoCombineSleep = 0;
     nAutoCombineSleep = GetArg("-autocombine", 300);
+    nAutoCombineThreshold = GetArg("-autocombinethreshold", 540);
     if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced() || !autoCombine || IsLocked()) {
         LogPrintf("%s: Skipped due to settings or locked and/or syncing wallet\n", __func__);
         return;
