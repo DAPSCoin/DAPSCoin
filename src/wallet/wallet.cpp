@@ -5344,11 +5344,11 @@ void CWallet::AutoCombineDust()
     bool autoConsolidate = GetBoolArg("-autoconsolidate", false);
     int64_t nAutoCombineSleep = 0;
     nAutoCombineSleep = GetArg("-autocombine", 300);
-    if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced() || !autoCombine) {
-        LogPrintf("%s: Skipped due to syncing or settings\n", __func__);
+    if (IsInitialBlockDownload() || !masternodeSync.IsBlockchainSynced() || !autoCombine || IsLocked()) {
+        LogPrintf("%s: Skipped due to settings or locked and/or syncing wallet\n", __func__);
         return;
     }
-    if (chainActive.Tip()->nTime < (GetAdjustedTime() - nDefaultMinerSleep) || IsLocked()) {
+    if (chainActive.Tip()->nTime < (GetAdjustedTime() - nDefaultMinerSleep)) {
         LogPrintf("%s: Time elapsed for autocombine transaction too short\n", __func__);
         return;
     }
