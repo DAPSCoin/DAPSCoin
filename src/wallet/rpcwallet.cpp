@@ -2769,6 +2769,34 @@ UniValue sendtostealthaddress(const UniValue& params, bool fHelp)
     return wtx.GetHash().GetHex();
 }
 
+UniValue sendalltostealthaddress(const UniValue& params, bool fHelp)
+{
+    if (fHelp || params.size() != 1)
+        throw runtime_error(
+                "sendalltostealthaddress \"dapsstealthaddress\"\n"
+                "\nSend all daps to stealth address\n" +
+                HelpRequiringPassphrase() +
+                "\nArguments:\n"
+                "1. \"dapsstealthaddress\"  (string, required) The dapscoin stealth address to send to.\n"
+                "\nResult:\n"
+                "\"transactionid\"  (string) The transaction id.\n"
+                "\nExamples:\n" +
+                HelpExampleCli("sendtostealthaddress", "\"41kYDmcd27f2ULWE6tfC19UnEHYpEhMBtfiYwVFUYbZhXrjLomZXSovQPGzwTCAgwQLpWiEQPA5uyNjmEVLPr4g71AUMNjaVD3n\" 0.1") + HelpExampleCli("sendtostealthaddress", "\"41kYDmcd27f2ULWE6tfC19UnEHYpEhMBtfiYwVFUYbZhXrjLomZXSovQPGzwTCAgwQLpWiEQPA5uyNjmEVLPr4g71AUMNjaVD3n\" 0.1 \"donation\" \"seans outpost\"") + HelpExampleRpc("sendtostealthaddress", "\"41kYDmcd27f2ULWE6tfC19UnEHYpEhMBtfiYwVFUYbZhXrjLomZXSovQPGzwTCAgwQLpWiEQPA5uyNjmEVLPr4g71AUMNjaVD3n\", 0.1, \"donation\", \"seans outpost\""));
+
+    std::string stealthAddr = params[0].get_str();
+
+    EnsureWalletIsUnlocked();
+
+    // Wallet comments
+    CWalletTx wtx;
+
+    if (!pwalletMain->SendAll(stealthAddr)) {
+        throw JSONRPCError(RPC_WALLET_ERROR,
+                           "Cannot create transaction.");
+    }
+    return wtx.GetHash().GetHex();
+}
+
 UniValue setdecoyconfirmation(const UniValue& params, bool fHelp)
 {
     if (fHelp || params.size() != 1)
