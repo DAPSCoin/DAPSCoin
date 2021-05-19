@@ -1,125 +1,115 @@
-Mac OS X Build Instructions and Notes
-====================================
-This guide will show you how to build dapscoind (headless client) for OSX.
+# macOS Build Instructions and Notes
 
-Notes
------
+The commands in this guide should be executed in a Terminal application.
+The built-in one is located in
+```
+/Applications/Utilities/Terminal.app
+```
 
-* Tested on OS X 10.7 through 10.10 on 64-bit Intel processors only.
+## Preparation
+Install the macOS command line tools:
 
-* All of the commands should be executed in a Terminal application. The
-built-in one is located in `/Applications/Utilities`.
+```shell
+xcode-select --install
+```
 
-Preparation
------------
+When the popup appears, click `Install`.
 
-You need to install XCode with all the options checked so that the compiler
-and everything is available in /usr not just /Developer. XCode should be
-available on your OS X installation media, but if not, you can get the
-current version from https://developer.apple.com/xcode/. If you install
-Xcode 4.3 or later, you'll need to install its command line tools. This can
-be done in `Xcode > Preferences > Downloads > Components` and generally must
-be re-done or updated every time Xcode is updated.
+Then install [Homebrew](https://brew.sh).
 
-There's also an assumption that you already have `git` installed. If
-not, it's the path of least resistance to install [Github for Mac](https://mac.github.com/)
-(OS X 10.7+) or
-[Git for OS X](https://code.google.com/p/git-osx-installer/). It is also
-available via Homebrew.
+## Dependencies
+```shell
+brew install automake berkeley-db4 libtool boost miniupnpc pkg-config python qt libevent qrencode
+```
 
-You will also need to install [Homebrew](http://brew.sh) in order to install library
-dependencies.
+See [dependencies.md](dependencies.md) for a complete overview.
 
-The installation of the actual dependencies is covered in the Instructions
-sections below.
+If you want to build the disk image with `make deploy` (.dmg / optional), you need RSVG:
+```shell
+brew install librsvg
+```
 
-Instructions: Homebrew
-----------------------
+## Berkeley DB
+It is recommended to use Berkeley DB 4.8. If you have to build it yourself,
+you can use [this](/contrib/install_db4.sh) script to install it
+like so:
 
-#### Install dependencies using Homebrew
+```shell
+./contrib/install_db4.sh .
+```
 
-        brew install autoconf automake berkeley-db4 libtool boost miniupnpc openssl pkg-config protobuf qt5 libzmq
+from the root of the repository.
 
-### Building `dapscoind`
+**Note**: You only need Berkeley DB if the wallet is enabled (see [*Disable-wallet mode*](/doc/build-osx.md#disable-wallet-mode)).
 
-1. Clone the github tree to get the source code and go into the directory.
+## Build DAPSCoin Core
 
-        git clone https://github.com/DAPScoin-Project/DAPScoin.git
-        cd DAPScoin
+1. Clone the DAPSCoin Core source code:
+    ```shell
+    git clone https://github.com/dapscoin/dapscoin
+    cd dapscoin
+    ```
 
-2.  Build dapscoind:
+2.  Build DAPSCoin Core:
 
-        ./autogen.sh
-        ./configure --with-gui=qt5
-        make
-3.  Make the Homebrew OpenSSL headers visible to the configure script  (do ```brew info openssl``` to find out why this is necessary, or if you use Homebrew with installation folders different from the default).
+    Configure and build the headless DAPSCoin Core binaries as well as the GUI (if Qt is found).
 
-        export LDFLAGS+=-L/usr/local/opt/openssl/lib
-        export CPPFLAGS+=-I/usr/local/opt/openssl/include
+    You can disable the GUI build by passing `--without-gui` to configure.
+    ```shell
+    ./autogen.sh
+    ./configure
+    make
+    ```
 
-4.  It is also a good idea to build and run the unit tests:
+3.  It is recommended to build and run the unit tests:
+    ```shell
+    make check
+    ```
 
-        make check
+4.  You can also create a  `.dmg` that contains the `.app` bundle (optional):
+    ```shell
+    make deploy
+    ```
 
-5.  (Optional) You can also install dapscoind to your path:
+## `disable-wallet` mode
+When the intention is to run only a P2P node without a wallet, DAPSCoin Core may be
+compiled in `disable-wallet` mode with:
+```shell
+./configure --disable-wallet
+```
 
-        make install
+In this case there is no dependency on Berkeley DB 4.8.
 
-Use Qt Creator as IDE
-------------------------
-You can use Qt Creator as IDE, for debugging and for manipulating forms, etc.
-Download Qt Creator from http://www.qt.io/download/. Download the "community edition" and only install Qt Creator (uncheck the rest during the installation process).
+Mining is also possible in disable-wallet mode using the `getblocktemplate` RPC call.
 
-1. Make sure you installed everything through homebrew mentioned above
-2. Do a proper ./configure --with-gui=qt5 --enable-debug
-3. In Qt Creator do "New Project" -> Import Project -> Import Existing Project
-4. Enter "dapscoin-qt" as project name, enter src/qt as location
-5. Leave the file selection as it is
-6. Confirm the "summary page"
-7. In the "Projects" tab select "Manage Kits..."
-8. Select the default "Desktop" kit and select "Clang (x86 64bit in /usr/bin)" as compiler
-9. Select LLDB as debugger (you might need to set the path to your installtion)
-10. Start debugging with Qt Creator
+## Running
+DAPSCoin Core is now available at `./src/dapscoind`
 
-Creating a release build
-------------------------
-You can ignore this section if you are building `dapscoind` for your own use.
+Before running, you may create an empty configuration file:
+```shell
+mkdir -p "/Users/${USER}/Library/Application Support/DAPSCoin"
 
-dapscoind/dapscoin-cli binaries are not included in the dapscoin-Qt.app bundle.
+touch "/Users/${USER}/Library/Application Support/DAPSCoin/dapscoin.conf"
 
-If you are building `dapscoind` or `dapscoin-qt` for others, your build machine should be set up
-as follows for maximum compatibility:
+chmod 600 "/Users/${USER}/Library/Application Support/DAPSCoin/dapscoin.conf"
+```
 
-All dependencies should be compiled with these flags:
+The first time you run dapscoind, it will start downloading the blockchain. This process could
+take many hours, or even days on slower than average systems.
 
- -mmacosx-version-min=10.7
- -arch x86_64
- -isysroot $(xcode-select --print-path)/Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.7.sdk
+You can monitor the download process by looking at the debug.log file:
+```shell
+tail -f $HOME/Library/Application\ Support/DAPSCoin/debug.log
+```
 
-Once dependencies are compiled, see release-process.md for how the DAPScoin-Qt.app
-bundle is packaged and signed to create the .dmg disk image that is distributed.
+## Other commands:
+```shell
+./src/dapscoind -daemon      # Starts the dapscoin daemon.
+./src/dapscoin-cli --help    # Outputs a list of command-line options.
+./src/dapscoin-cli help      # Outputs a list of RPC commands when the daemon is running.
+```
 
-Running
--------
-
-It's now available at `./dapscoind`, provided that you are still in the `src`
-directory. We have to first create the RPC configuration file, though.
-
-Run `./dapscoind` to get the filename where it should be put, or just try these
-commands:
-
-    echo -e "rpcuser=dapscoinrpc\nrpcpassword=$(xxd -l 16 -p /dev/urandom)" > "/Users/${USER}/Library/Application Support/DAPScoin/dapscoin.conf"
-    chmod 600 "/Users/${USER}/Library/Application Support/DAPScoin/dapscoin.conf"
-
-The next time you run it, it will start downloading the blockchain, but it won't
-output anything while it's doing this. This process may take several hours;
-you can monitor its process by looking at the debug.log file, like this:
-
-    tail -f $HOME/Library/Application\ Support/DAPScoin/debug.log
-
-Other commands:
--------
-
-    ./dapscoind -daemon # to start the dapscoin daemon.
-    ./dapscoin-cli --help  # for a list of command-line options.
-    ./dapscoin-cli help    # When the daemon is running, to get a list of RPC commands
+## Notes
+* Tested on OS X 10.12 Sierra through macOS 10.15 Catalina on 64-bit Intel
+processors only.
+* Building with downloaded Qt binaries is not officially supported. See the notes in [#7714](https://github.com/dapscoin/dapscoin/issues/7714).

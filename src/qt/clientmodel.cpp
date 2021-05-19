@@ -49,8 +49,6 @@ ClientModel::ClientModel(OptionsModel* optionsModel, QObject* parent) : QObject(
 
     pollMnTimer = new QTimer(this);
     connect(pollMnTimer, SIGNAL(timeout()), this, SLOT(updateMnTimer()));
-    // no need to update as frequent as data for balances/txes/blocks
-    pollMnTimer->start(MODEL_UPDATE_DELAY * 40);
 
     subscribeToCoreSignals();
 }
@@ -147,6 +145,21 @@ void ClientModel::updateMnTimer()
         cachedMasternodeCountString = newMasternodeCountString;
 
         Q_EMIT strMasternodesChanged(cachedMasternodeCountString);
+    }
+}
+
+void ClientModel::startMasternodesTimer()
+{
+    if (!pollMnTimer->isActive()) {
+        // no need to update as frequent as data for balances/txes/blocks
+        pollMnTimer->start(MODEL_UPDATE_DELAY * 40);
+    }
+}
+
+void ClientModel::stopMasternodesTimer()
+{
+    if (pollMnTimer->isActive()) {
+        pollMnTimer->stop();
     }
 }
 

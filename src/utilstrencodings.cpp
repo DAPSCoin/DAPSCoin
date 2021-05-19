@@ -16,7 +16,6 @@
 
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
-#include <openssl/crypto.h> // for OPENSSL_cleanse()
 #include <openssl/evp.h>
 
 
@@ -283,7 +282,7 @@ SecureString EncodeBase64Secure(const SecureString& input)
     SecureString output(bptr->data, bptr->length);
 
     // Cleanse secure data buffer from memory
-    OPENSSL_cleanse((void*)bptr->data, bptr->length);
+    memory_cleanse((void*)bptr->data, bptr->length);
 
     // Free memory
     BIO_free_all(b64);

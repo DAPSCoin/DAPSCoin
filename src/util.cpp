@@ -25,7 +25,6 @@
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <openssl/bio.h>
 #include <openssl/buffer.h>
-#include <openssl/crypto.h> // for OPENSSL_cleanse()
 #include <openssl/evp.h>
 #include "pubkey.h"
 #include "key.h"
@@ -57,11 +56,6 @@
 #pragma warning(disable : 4805)
 #pragma warning(disable : 4717)
 #endif
-
-#ifdef _WIN32_WINNT
-#undef _WIN32_WINNT
-#endif
-#define _WIN32_WINNT 0x0501
 
 #ifdef _WIN32_IE
 #undef _WIN32_IE

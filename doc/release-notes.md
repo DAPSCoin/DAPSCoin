@@ -20,7 +20,8 @@ Compatibility
 ==============
 
 DAPS is extensively tested on multiple operating systems using
-the Linux kernel, macOS 10.8+, and Windows Vista and later.
+the Linux kernel, macOS 10.12+, and Windows 7 and newer. It is not recommended
+to use DAPS on unsupported systems.
 
 Microsoft ended support for Windows XP on [April 8th, 2014](https://www.microsoft.com/en-us/WindowsForBusiness/end-of-xp-support),
 No attempt is made to prevent installing or running the software on Windows XP, you

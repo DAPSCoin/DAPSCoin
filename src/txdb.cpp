@@ -15,20 +15,19 @@
 
 #include <boost/thread.hpp>
 
+static const char DB_COINS = 'c';
+static const char DB_BLOCK_FILES = 'f';
+static const char DB_TXINDEX = 't';
+static const char DB_BLOCK_INDEX = 'b';
+
+static const char DB_BEST_BLOCK = 'B';
+static const char DB_FLAG = 'F';
+static const char DB_REINDEX_FLAG = 'R';
+static const char DB_LAST_BLOCK = 'l';
+static const char DB_INT = 'I';
+static const char DB_KEYIMAGE = 'k';
+
 using namespace std;
-
-void static BatchWriteCoins(CLevelDBBatch& batch, const uint256& hash, const CCoins& coins)
-{
-    if (coins.IsPruned())
-        batch.Erase(make_pair('c', hash));
-    else
-        batch.Write(make_pair('c', hash), coins);
-}
-
-void static BatchWriteHashBestChain(CLevelDBBatch& batch, const uint256& hash)
-{
-    batch.Write('B', hash);
-}
 
 CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(GetDataDir() / "chainstate", nCacheSize, fMemory, fWipe)
 {
@@ -36,30 +35,33 @@ CCoinsViewDB::CCoinsViewDB(size_t nCacheSize, bool fMemory, bool fWipe) : db(Get
 
 bool CCoinsViewDB::GetCoins(const uint256& txid, CCoins& coins) const
 {
-    return db.Read(make_pair('c', txid), coins);
+    return db.Read(std::make_pair(DB_COINS, txid), coins);
 }
 
 bool CCoinsViewDB::HaveCoins(const uint256& txid) const
 {
-    return db.Exists(make_pair('c', txid));
+    return db.Exists(std::make_pair(DB_COINS, txid));
 }
 
 uint256 CCoinsViewDB::GetBestBlock() const
 {
     uint256 hashBestChain;
-    if (!db.Read('B', hashBestChain))
+    if (!db.Read(DB_BEST_BLOCK, hashBestChain))
         return uint256(0);
     return hashBestChain;
 }
 
 bool CCoinsViewDB::BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock)
 {
-    CLevelDBBatch batch;
+    CDBBatch batch;
     size_t count = 0;
     size_t changed = 0;
     for (CCoinsMap::iterator it = mapCoins.begin(); it != mapCoins.end();) {
         if (it->second.flags & CCoinsCacheEntry::DIRTY) {
-            BatchWriteCoins(batch, it->first, it->second.coins);
+            if (it->second.coins.IsPruned())
+                batch.Erase(std::make_pair(DB_COINS, it->first));
+            else
+                batch.Write(std::make_pair(DB_COINS, it->first), it->second.coins);
             changed++;
         }
         count++;
@@ -67,44 +69,44 @@ bool CCoinsViewDB::BatchWrite(CCoinsMap& mapCoins, const uint256& hashBlock)
         mapCoins.erase(itOld);
     }
     if (hashBlock != uint256(0))
-        BatchWriteHashBestChain(batch, hashBlock);
+        batch.Write(DB_BEST_BLOCK, hashBlock);
 
     LogPrint("coindb", "Committing %u changed transactions (out of %u) to coin database...\n", (unsigned int)changed, (unsigned int)count);
     return db.WriteBatch(batch);
 }
 
-CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) : CLevelDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe)
+CBlockTreeDB::CBlockTreeDB(size_t nCacheSize, bool fMemory, bool fWipe) : CDBWrapper(GetDataDir() / "blocks" / "index", nCacheSize, fMemory, fWipe)
 {
 }
 
 bool CBlockTreeDB::WriteBlockIndex(const CDiskBlockIndex& blockindex)
 {
-    return Write(make_pair('b', blockindex.GetBlockHash()), blockindex);
+    return Write(std::make_pair(DB_BLOCK_INDEX, blockindex.GetBlockHash()), blockindex);
 }
 
 
 bool CBlockTreeDB::ReadBlockFileInfo(int nFile, CBlockFileInfo& info)
 {
-    return Read(make_pair('f', nFile), info);
+    return Read(std::make_pair(DB_BLOCK_FILES, nFile), info);
 }
 
 bool CBlockTreeDB::WriteReindexing(bool fReindexing)
 {
     if (fReindexing)
-        return Write('R', '1');
+        return Write(DB_REINDEX_FLAG, '1');
     else
-        return Erase('R');
+        return Erase(DB_REINDEX_FLAG);
 }
 
 bool CBlockTreeDB::ReadReindexing(bool& fReindexing)
 {
-    fReindexing = Exists('R');
+    fReindexing = Exists(DB_REINDEX_FLAG);
     return true;
 }
 
 bool CBlockTreeDB::ReadLastBlockFile(int& nFile)
 {
-    return Read('l', nFile);
+    return Read(DB_LAST_BLOCK, nFile);
 }
 
 bool CCoinsViewDB::GetStats(CCoinsStats& stats) const
@@ -112,8 +114,8 @@ bool CCoinsViewDB::GetStats(CCoinsStats& stats) const
     /* It seems that there are no "const iterators" for LevelDB.  Since we
        only need read operations on it, use a const-cast to get around
        that restriction.  */
-    boost::scoped_ptr<leveldb::Iterator> pcursor(const_cast<CLevelDBWrapper*>(&db)->NewIterator());
-    pcursor->SeekToFirst();
+    boost::scoped_ptr<CDBIterator> pcursor(const_cast<CDBWrapper*>(&db)->NewIterator());
+    pcursor->Seek(DB_COINS);
 
     CHashWriter ss(SER_GETHASH, PROTOCOL_VERSION);
     stats.hashBlock = GetBestBlock();
@@ -121,22 +123,10 @@ bool CCoinsViewDB::GetStats(CCoinsStats& stats) const
     CAmount nTotalAmount = 0;
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
-        try {
-            leveldb::Slice slKey = pcursor->key();
-            CDataStream ssKey(slKey.data(), slKey.data() + slKey.size(), SER_DISK, CLIENT_VERSION);
-            char chType;
-            ssKey >> chType;
-            if (chType == 'c') {
-                leveldb::Slice slValue = pcursor->value();
-                CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
-                CCoins coins;
-                ssValue >> coins;
-                uint256 txhash;
-                ssKey >> txhash;
-                ss << txhash;
-                ss << VARINT(coins.nVersion);
-                ss << (coins.fCoinBase ? 'c' : 'n');
-                ss << VARINT(coins.nHeight);
+        std::pair<char, uint256> key;
+        CCoins coins;
+        if (pcursor->GetKey(key) && key.first == DB_COINS) {
+            if (pcursor->GetValue(coins)) {
                 stats.nTransactions++;
                 for (unsigned int i = 0; i < coins.vout.size(); i++) {
                     const CTxOut& out = coins.vout[i];
@@ -147,42 +137,45 @@ bool CCoinsViewDB::GetStats(CCoinsStats& stats) const
                         nTotalAmount += out.nValue;
                     }
                 }
-                stats.nSerializedSize += 32 + slValue.size();
+                stats.nSerializedSize += 32 + pcursor->GetValueSize();
                 ss << VARINT(0);
+            } else {
+                return error("CCoinsViewDB::GetStats() : unable to read value");
             }
-            pcursor->Next();
-        } catch (const std::exception& e) {
-            return error("%s : Deserialize or I/O error - %s", __func__, e.what());
+        } else {
+            break;
         }
+        pcursor->Next();
     }
-    stats.nHeight = mapBlockIndex.find(GetBestBlock())->second->nHeight;
+
+    stats.nHeight = WITH_LOCK(cs_main, return mapBlockIndex.find(stats.hashBlock)->second->nHeight;);
     stats.hashSerialized = ss.GetHash();
     stats.nTotalAmount = nTotalAmount;
     return true;
 }
 
 bool CBlockTreeDB::WriteBatchSync(const std::vector<std::pair<int, const CBlockFileInfo*> >& fileInfo, int nLastFile, const std::vector<const CBlockIndex*>& blockinfo) {
-    CLevelDBBatch batch;
+    CDBBatch batch;
     for (std::vector<std::pair<int, const CBlockFileInfo*> >::const_iterator it=fileInfo.begin(); it != fileInfo.end(); it++) {
-        batch.Write(make_pair('f', it->first), *it->second);
+        batch.Write(std::make_pair(DB_BLOCK_FILES, it->first), *it->second);
     }
-    batch.Write('l', nLastFile);
+    batch.Write(DB_LAST_BLOCK, nLastFile);
     for (std::vector<const CBlockIndex*>::const_iterator it=blockinfo.begin(); it != blockinfo.end(); it++) {
-        batch.Write(make_pair('b', (*it)->GetBlockHash()), CDiskBlockIndex(*it));
+        batch.Write(std::make_pair(DB_BLOCK_INDEX, (*it)->GetBlockHash()), CDiskBlockIndex(*it));
     }
     return WriteBatch(batch, true);
 }
 
 bool CBlockTreeDB::ReadTxIndex(const uint256& txid, CDiskTxPos& pos)
 {
-    return Read(make_pair('t', txid), pos);
+    return Read(std::make_pair(DB_TXINDEX, txid), pos);
 }
 
 bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos> >& vect)
 {
-    CLevelDBBatch batch;
+    CDBBatch batch;
     for (std::vector<std::pair<uint256, CDiskTxPos> >::const_iterator it = vect.begin(); it != vect.end(); it++) {
-        batch.Write(make_pair('t', it->first), it->second);
+        batch.Write(std::make_pair(DB_TXINDEX, it->first), it->second);
     }
     return WriteBatch(batch);
 }
@@ -190,13 +183,13 @@ bool CBlockTreeDB::WriteTxIndex(const std::vector<std::pair<uint256, CDiskTxPos>
 
 bool CBlockTreeDB::ReadKeyImage(const string& keyImage, uint256& bh)
 {
-    return Read(std::make_pair('k', keyImage), bh);
+    return Read(std::make_pair(DB_KEYIMAGE, keyImage), bh);
 }
 
 bool CBlockTreeDB::ReadKeyImages(const string& keyImage, std::vector<uint256>& bhs)
 {
     uint256 bh;
-    if (!Read(std::make_pair('k', keyImage), bh)) return false;
+    if (!Read(std::make_pair(DB_KEYIMAGE, keyImage), bh)) return false;
     bhs.push_back(bh);
     int i = 1;
     while(ReadKeyImage(keyImage + std::to_string(i), bh)) {
@@ -210,24 +203,24 @@ bool CBlockTreeDB::WriteKeyImage(const string& keyImage, const uint256& bh)
 {
     uint256 blockHash;
     if (!ReadKeyImage(keyImage, blockHash)) {
-        return Write(std::make_pair('k', keyImage), bh);
+        return Write(std::make_pair(DB_KEYIMAGE, keyImage), bh);
     }
     int i = 1;
     while (ReadKeyImage(keyImage + std::to_string(i), blockHash)) {
         i++;
     }
-    return Write(std::make_pair('k', keyImage + std::to_string(i)), bh);
+    return Write(std::make_pair(DB_KEYIMAGE, keyImage + std::to_string(i)), bh);
 }
 
 bool CBlockTreeDB::WriteFlag(const std::string& name, bool fValue)
 {
-    return Write(std::make_pair('F', name), fValue ? '1' : '0');
+    return Write(std::make_pair(DB_FLAG, name), fValue ? '1' : '0');
 }
 
 bool CBlockTreeDB::ReadFlag(const std::string& name, bool& fValue)
 {
     char ch;
-    if (!Read(std::make_pair('F', name), ch))
+    if (!Read(std::make_pair(DB_FLAG, name), ch))
         return false;
     fValue = ch == '1';
     return true;
@@ -235,37 +228,28 @@ bool CBlockTreeDB::ReadFlag(const std::string& name, bool& fValue)
 
 bool CBlockTreeDB::WriteInt(const std::string& name, int nValue)
 {
-    return Write(std::make_pair('I', name), nValue);
+    return Write(std::make_pair(DB_INT, name), nValue);
 }
 
 bool CBlockTreeDB::ReadInt(const std::string& name, int& nValue)
 {
-    return Read(std::make_pair('I', name), nValue);
+    return Read(std::make_pair(DB_INT, name), nValue);
 }
 
 bool CBlockTreeDB::LoadBlockIndexGuts()
 {
-    boost::scoped_ptr<leveldb::Iterator> pcursor(NewIterator());
+    boost::scoped_ptr<CDBIterator> pcursor(NewIterator());
 
-    CDataStream ssKeySet(SER_DISK, CLIENT_VERSION);
-    ssKeySet << make_pair('b', uint256(0));
-    pcursor->Seek(ssKeySet.str());
+    pcursor->Seek(std::make_pair(DB_BLOCK_INDEX, uint256(0)));
 
     // Load mapBlockIndex
     uint256 nPreviousCheckpoint;
     while (pcursor->Valid()) {
         boost::this_thread::interruption_point();
-        try {
-            leveldb::Slice slKey = pcursor->key();
-            CDataStream ssKey(slKey.data(), slKey.data() + slKey.size(), SER_DISK, CLIENT_VERSION);
-            char chType;
-            ssKey >> chType;
-            if (chType == 'b') {
-                leveldb::Slice slValue = pcursor->value();
-                CDataStream ssValue(slValue.data(), slValue.data() + slValue.size(), SER_DISK, CLIENT_VERSION);
-                CDiskBlockIndex diskindex;
-                ssValue >> diskindex;
-
+        std::pair<char, uint256> key;
+        if (pcursor->GetKey(key) && key.first == DB_BLOCK_INDEX) {
+            CDiskBlockIndex diskindex;
+            if (pcursor->GetValue(diskindex)) {
                 // Construct block index object
                 CBlockIndex* pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
                 pindexNew->pprev = InsertBlockIndex(diskindex.hashPrev);
@@ -308,10 +292,10 @@ bool CBlockTreeDB::LoadBlockIndexGuts()
 
                 pcursor->Next();
             } else {
-                break; // if shutdown requested or finished loading block index
+                return error("%s : failed to read value", __func__);
             }
-        } catch (const std::exception& e) {
-            return error("%s : Deserialize or I/O error - %s", __func__, e.what());
+        } else {
+            break;
         }
     }
 

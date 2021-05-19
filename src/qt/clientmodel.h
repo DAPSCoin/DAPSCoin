@@ -83,6 +83,10 @@ public:
 
     bool getTorInfo(std::string& ip_port) const;
 
+    // Start/Stop the masternode polling timer
+    void startMasternodesTimer();
+    void stopMasternodesTimer();
+
     void setCacheTip(const CBlockIndex* const tip) { cacheTip = tip; }
     void setCacheReindexing(bool reindex) { cachedReindexing = reindex; }
     void setCacheImporting(bool import) { cachedImporting = import; }
